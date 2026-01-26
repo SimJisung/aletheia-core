@@ -141,7 +141,7 @@ data class ValueNode(
     val axis: ValueAxis,
     val avgValence: Double,
     val recentTrend: Trend,
-    val fragmentCount: Int
+    val fragmentCount: Double // sum of weights (effective count)
 )
 
 data class ValueEdge(
@@ -267,7 +267,7 @@ CREATE TABLE value_nodes (
     axis VARCHAR(50) NOT NULL,
     avg_valence DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     recent_trend VARCHAR(20) NOT NULL DEFAULT 'NEUTRAL',
-    fragment_count INT NOT NULL DEFAULT 0,
+    fragment_count DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     UNIQUE(user_id, axis)

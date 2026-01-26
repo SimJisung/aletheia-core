@@ -11,7 +11,7 @@ import java.time.Instant
  * The node tracks:
  * - Average emotional valence toward this value
  * - Recent trend direction
- * - Number of associated fragments
+ * - Effective count of associated fragments (sum of weights)
  *
  * These statistics are updated incrementally as fragments are added.
  */
@@ -21,14 +21,14 @@ data class ValueNode(
     val axis: ValueAxis,
     val avgValence: Double,
     val recentTrend: Trend,
-    val fragmentCount: Int,
+    val fragmentCount: Double,
     val updatedAt: Instant
 ) {
     init {
         require(avgValence in -1.0..1.0) {
             "avgValence must be between -1.0 and 1.0"
         }
-        require(fragmentCount >= 0) {
+        require(fragmentCount >= 0.0) {
             "fragmentCount cannot be negative"
         }
     }
@@ -36,7 +36,7 @@ data class ValueNode(
     /**
      * Whether this value has any associated fragments.
      */
-    val hasFragments: Boolean get() = fragmentCount > 0
+    val hasFragments: Boolean get() = fragmentCount > 0.0
 
     /**
      * Whether the user feels positively about this value overall.
@@ -64,9 +64,13 @@ data class ValueNode(
         require(fragmentValence in -1.0..1.0) { "fragmentValence must be between -1.0 and 1.0" }
         require(weight in 0.0..1.0) { "weight must be between 0.0 and 1.0" }
 
-        // Weighted incremental average
-        val newCount = fragmentCount + 1
-        val newAvg = ((avgValence * fragmentCount) + (fragmentValence * weight)) / newCount
+        // Weighted incremental average using total weight
+        val newCount = fragmentCount + weight
+        val newAvg = if (newCount == 0.0) {
+            avgValence
+        } else {
+            ((avgValence * fragmentCount) + (fragmentValence * weight)) / newCount
+        }
 
         return copy(
             avgValence = newAvg.coerceIn(-1.0, 1.0),
@@ -90,7 +94,7 @@ data class ValueNode(
             axis = axis,
             avgValence = 0.0,
             recentTrend = Trend.NEUTRAL,
-            fragmentCount = 0,
+            fragmentCount = 0.0,
             updatedAt = createdAt
         )
 

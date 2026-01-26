@@ -80,7 +80,7 @@
   - `axis`: 가치 축 종류
   - `avgValence`: 해당 가치에 대한 평균 감정가
   - `recentTrend`: 최근 추세
-  - `fragmentCount`: 연관된 파편 수
+  - `fragmentCount`: 연관된 파편 가중치 합 (effective count)
 
 ### ValueEdge (가치 엣지)
 - **정의**: 두 가치 축 간의 관계를 나타내는 연결

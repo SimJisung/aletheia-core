@@ -23,8 +23,8 @@ CREATE TABLE value_nodes (
     -- Recent trend direction
     recent_trend VARCHAR(20) NOT NULL DEFAULT 'NEUTRAL',
 
-    -- Count of fragments associated with this value
-    fragment_count INT NOT NULL DEFAULT 0,
+-- Sum of fragment weights (effective count)
+fragment_count DOUBLE PRECISION NOT NULL DEFAULT 0.0,
 
     -- Last update timestamp
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -43,7 +43,7 @@ CREATE TABLE value_nodes (
 
     -- Valid ranges
     CONSTRAINT chk_avg_valence CHECK (avg_valence BETWEEN -1.0 AND 1.0),
-    CONSTRAINT chk_fragment_count CHECK (fragment_count >= 0)
+CONSTRAINT chk_fragment_count CHECK (fragment_count >= 0.0)
 );
 
 -- Index for fetching all nodes for a user
