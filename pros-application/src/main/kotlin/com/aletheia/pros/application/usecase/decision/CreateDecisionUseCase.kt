@@ -37,6 +37,7 @@ class CreateDecisionUseCase(
     companion object {
         private const val EVIDENCE_COUNT = 5
         private const val SIMILAR_FRAGMENTS_COUNT = 20
+        private const val PRIORITY_AXIS_BOOST = 0.35
     }
 
     /**
@@ -133,6 +134,9 @@ class CreateDecisionUseCase(
         // Generate embeddings for options
         val embeddingA = embeddingPort.embed(optionA)
         val embeddingB = embeddingPort.embed(optionB)
+        val priorityEmbedding = priorityAxis?.let { axis ->
+            embeddingPort.embed(buildPriorityAxisText(axis))
+        }
 
         // Calculate weighted fit based on similar fragments
         var fitA = 0.0
@@ -141,7 +145,12 @@ class CreateDecisionUseCase(
 
         for (similar in similarFragments) {
             val fragmentEmbedding = similar.fragment.embedding ?: continue
-            val weight = similar.similarity
+            val priorityWeight = priorityEmbedding?.let { axisEmbedding ->
+                val axisSimilarity = fragmentEmbedding.cosineSimilarity(axisEmbedding)
+                val axisRelevance = axisSimilarity.coerceAtLeast(0.0)
+                1.0 + (PRIORITY_AXIS_BOOST * axisRelevance)
+            } ?: 1.0
+            val weight = similar.similarity * priorityWeight
 
             // Calculate how well each option aligns with this fragment
             val alignA = embeddingA.cosineSimilarity(fragmentEmbedding)
@@ -161,6 +170,10 @@ class CreateDecisionUseCase(
         }
 
         return fitA to fitB
+    }
+
+    private fun buildPriorityAxisText(axis: ValueAxis): String {
+        return "Value axis: ${axis.displayNameEn}. ${axis.description}"
     }
 
     private fun calculateRegretRisk(
