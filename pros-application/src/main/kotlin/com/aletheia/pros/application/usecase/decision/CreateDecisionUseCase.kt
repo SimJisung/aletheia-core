@@ -1,0 +1,225 @@
+package com.aletheia.pros.application.usecase.decision
+
+import com.aletheia.pros.application.port.input.CreateDecisionCommand
+import com.aletheia.pros.application.port.output.EmbeddingPort
+import com.aletheia.pros.domain.common.UserId
+import com.aletheia.pros.domain.decision.Decision
+import com.aletheia.pros.domain.decision.DecisionRepository
+import com.aletheia.pros.domain.decision.DecisionResult
+import com.aletheia.pros.domain.fragment.FragmentRepository
+import com.aletheia.pros.domain.fragment.SimilarFragment
+import com.aletheia.pros.domain.value.ValueAxis
+import com.aletheia.pros.domain.value.ValueGraphRepository
+import kotlin.math.exp
+
+/**
+ * Use case for creating a decision projection.
+ *
+ * CRITICAL DESIGN PRINCIPLE:
+ * This calculates probabilities and regret risks based on historical patterns.
+ * It does NOT recommend or suggest. The output is descriptive, not prescriptive.
+ *
+ * Calculation Flow:
+ * 1. Generate context embedding from decision + options
+ * 2. Find similar historical fragments (evidence)
+ * 3. Calculate value fit for each option
+ * 4. Estimate regret risk based on historical patterns
+ * 5. Apply softmax to get probabilities
+ */
+class CreateDecisionUseCase(
+    private val decisionRepository: DecisionRepository,
+    private val fragmentRepository: FragmentRepository,
+    private val valueGraphRepository: ValueGraphRepository,
+    private val embeddingPort: EmbeddingPort,
+    private val userSettingsProvider: UserSettingsProvider
+) {
+
+    companion object {
+        private const val EVIDENCE_COUNT = 5
+        private const val SIMILAR_FRAGMENTS_COUNT = 20
+    }
+
+    /**
+     * Creates a decision projection.
+     */
+    suspend fun execute(command: CreateDecisionCommand): Decision {
+        // 1. Generate context embedding
+        val contextText = buildContextText(command)
+        val contextEmbedding = embeddingPort.embed(contextText)
+
+        // 2. Find similar fragments as evidence
+        val similarFragments = fragmentRepository.findSimilar(
+            userId = command.userId,
+            queryEmbedding = contextEmbedding,
+            topK = SIMILAR_FRAGMENTS_COUNT
+        )
+
+        // 3. Get value graph
+        val valueGraph = valueGraphRepository.findValueGraph(command.userId)
+
+        // 4. Get user settings (lambda)
+        val userSettings = userSettingsProvider.getSettings(command.userId)
+
+        // 5. Calculate value fit for each option
+        val (fitA, fitB) = calculateValueFit(
+            optionA = command.optionA,
+            optionB = command.optionB,
+            similarFragments = similarFragments,
+            priorityAxis = command.priorityAxis
+        )
+
+        // 6. Calculate regret risk
+        val (regretA, regretB) = calculateRegretRisk(
+            command.userId,
+            similarFragments,
+            userSettings.regretPrior
+        )
+
+        // 7. Compute decision result
+        val evidenceIds = similarFragments
+            .take(EVIDENCE_COUNT)
+            .map { it.fragment.id }
+
+        val valueAlignment = calculateValueAlignment(
+            command.optionA,
+            command.optionB,
+            valueGraph?.nodes ?: emptyList()
+        )
+
+        val result = DecisionResult.compute(
+            fitA = fitA,
+            fitB = fitB,
+            regretA = regretA,
+            regretB = regretB,
+            lambda = userSettings.lambda,
+            evidenceIds = evidenceIds,
+            valueAlignment = valueAlignment
+        )
+
+        // 8. Create and persist decision
+        val decision = Decision.create(
+            userId = command.userId,
+            title = command.title,
+            optionA = command.optionA,
+            optionB = command.optionB,
+            priorityAxis = command.priorityAxis,
+            result = result
+        )
+
+        return decisionRepository.save(decision)
+    }
+
+    private fun buildContextText(command: CreateDecisionCommand): String {
+        return buildString {
+            append("Decision: ${command.title}\n")
+            append("Option A: ${command.optionA}\n")
+            append("Option B: ${command.optionB}")
+            command.priorityAxis?.let {
+                append("\nPriority: ${it.displayNameEn}")
+            }
+        }
+    }
+
+    private suspend fun calculateValueFit(
+        optionA: String,
+        optionB: String,
+        similarFragments: List<SimilarFragment>,
+        priorityAxis: ValueAxis?
+    ): Pair<Double, Double> {
+        if (similarFragments.isEmpty()) {
+            return 0.5 to 0.5
+        }
+
+        // Generate embeddings for options
+        val embeddingA = embeddingPort.embed(optionA)
+        val embeddingB = embeddingPort.embed(optionB)
+
+        // Calculate weighted fit based on similar fragments
+        var fitA = 0.0
+        var fitB = 0.0
+        var totalWeight = 0.0
+
+        for (similar in similarFragments) {
+            val fragmentEmbedding = similar.fragment.embedding ?: continue
+            val weight = similar.similarity
+
+            // Calculate how well each option aligns with this fragment
+            val alignA = embeddingA.cosineSimilarity(fragmentEmbedding)
+            val alignB = embeddingB.cosineSimilarity(fragmentEmbedding)
+
+            // Weight by fragment's emotional valence (positive fragments = stronger signal)
+            val valenceWeight = (1 + similar.fragment.moodValence.value) / 2
+
+            fitA += alignA * weight * valenceWeight
+            fitB += alignB * weight * valenceWeight
+            totalWeight += weight
+        }
+
+        if (totalWeight > 0) {
+            fitA /= totalWeight
+            fitB /= totalWeight
+        }
+
+        return fitA to fitB
+    }
+
+    private fun calculateRegretRisk(
+        userId: UserId,
+        similarFragments: List<SimilarFragment>,
+        basePrior: Double
+    ): Pair<Double, Double> {
+        // Get historical regret rate from past decisions
+        val feedbackStats = decisionRepository.getFeedbackStats(userId)
+
+        // Base regret risk from historical data
+        val historicalRegretRate = if (feedbackStats.totalWithFeedback > 0) {
+            feedbackStats.regretRate
+        } else {
+            basePrior
+        }
+
+        // Adjust based on emotional volatility of similar fragments
+        val valenceVariance = calculateValenceVariance(similarFragments)
+
+        // Higher variance = higher regret risk (uncertainty)
+        val regretA = (historicalRegretRate + valenceVariance * 0.3).coerceIn(0.0, 1.0)
+        val regretB = (historicalRegretRate + valenceVariance * 0.3).coerceIn(0.0, 1.0)
+
+        return regretA to regretB
+    }
+
+    private fun calculateValenceVariance(fragments: List<SimilarFragment>): Double {
+        if (fragments.isEmpty()) return 0.5
+
+        val valences = fragments.map { it.fragment.moodValence.value }
+        val mean = valences.average()
+        val variance = valences.map { (it - mean) * (it - mean) }.average()
+
+        return variance.coerceIn(0.0, 1.0)
+    }
+
+    private fun calculateValueAlignment(
+        optionA: String,
+        optionB: String,
+        nodes: List<com.aletheia.pros.domain.value.ValueNode>
+    ): Map<ValueAxis, Double> {
+        // Placeholder: In production, use embeddings to calculate alignment
+        // For now, return neutral alignment
+        return ValueAxis.all().associateWith { 0.5 }
+    }
+}
+
+/**
+ * Provider for user settings.
+ */
+interface UserSettingsProvider {
+    suspend fun getSettings(userId: UserId): UserSettings
+}
+
+/**
+ * User settings for decision calculation.
+ */
+data class UserSettings(
+    val lambda: Double = 1.0,
+    val regretPrior: Double = 0.2
+)

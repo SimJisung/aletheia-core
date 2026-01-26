@@ -1,0 +1,35 @@
+/**
+ * pros-api: REST API Layer
+ *
+ * This module contains:
+ * - REST controllers
+ * - Request/Response DTOs
+ * - API exception handling
+ * - OpenAPI documentation
+ *
+ * Dependencies: pros-application, Spring Web
+ */
+
+plugins {
+    kotlin("jvm")
+    kotlin("plugin.spring")
+}
+
+dependencies {
+    implementation(project(":pros-domain"))
+    implementation(project(":pros-application"))
+
+    // Spring Web
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+
+    // OpenAPI Documentation
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0")
+
+    // Jackson
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
+
+    // Testing
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+}
