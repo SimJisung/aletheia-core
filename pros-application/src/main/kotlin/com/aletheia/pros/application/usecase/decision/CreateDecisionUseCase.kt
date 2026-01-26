@@ -2,6 +2,7 @@ package com.aletheia.pros.application.usecase.decision
 
 import com.aletheia.pros.application.port.input.CreateDecisionCommand
 import com.aletheia.pros.application.port.output.EmbeddingPort
+import com.aletheia.pros.domain.common.Embedding
 import com.aletheia.pros.domain.common.UserId
 import com.aletheia.pros.domain.decision.Decision
 import com.aletheia.pros.domain.decision.DecisionRepository
@@ -61,22 +62,28 @@ class CreateDecisionUseCase(
         // 4. Get user settings (lambda)
         val userSettings = userSettingsProvider.getSettings(command.userId)
 
-        // 5. Calculate value fit for each option
+        // 5. Generate option embeddings
+        val optionAEmbedding = embeddingPort.embed(command.optionA)
+        val optionBEmbedding = embeddingPort.embed(command.optionB)
+
+        // 6. Calculate value fit for each option
         val (fitA, fitB) = calculateValueFit(
-            optionA = command.optionA,
-            optionB = command.optionB,
+            optionAEmbedding = optionAEmbedding,
+            optionBEmbedding = optionBEmbedding,
             similarFragments = similarFragments,
             priorityAxis = command.priorityAxis
         )
 
-        // 6. Calculate regret risk
+        // 7. Calculate regret risk
         val (regretA, regretB) = calculateRegretRisk(
             command.userId,
             similarFragments,
-            userSettings.regretPrior
+            userSettings.regretPrior,
+            optionAEmbedding,
+            optionBEmbedding
         )
 
-        // 7. Compute decision result
+        // 8. Compute decision result
         val evidenceIds = similarFragments
             .take(EVIDENCE_COUNT)
             .map { it.fragment.id }
@@ -97,7 +104,7 @@ class CreateDecisionUseCase(
             valueAlignment = valueAlignment
         )
 
-        // 8. Create and persist decision
+        // 9. Create and persist decision
         val decision = Decision.create(
             userId = command.userId,
             title = command.title,
@@ -122,8 +129,8 @@ class CreateDecisionUseCase(
     }
 
     private suspend fun calculateValueFit(
-        optionA: String,
-        optionB: String,
+        optionAEmbedding: Embedding,
+        optionBEmbedding: Embedding,
         similarFragments: List<SimilarFragment>,
         priorityAxis: ValueAxis?
     ): Pair<Double, Double> {
@@ -131,9 +138,6 @@ class CreateDecisionUseCase(
             return 0.5 to 0.5
         }
 
-        // Generate embeddings for options
-        val embeddingA = embeddingPort.embed(optionA)
-        val embeddingB = embeddingPort.embed(optionB)
         val priorityEmbedding = priorityAxis?.let { axis ->
             embeddingPort.embed(buildPriorityAxisText(axis))
         }
@@ -153,8 +157,8 @@ class CreateDecisionUseCase(
             val weight = similar.similarity * priorityWeight
 
             // Calculate how well each option aligns with this fragment
-            val alignA = embeddingA.cosineSimilarity(fragmentEmbedding)
-            val alignB = embeddingB.cosineSimilarity(fragmentEmbedding)
+            val alignA = optionAEmbedding.cosineSimilarity(fragmentEmbedding)
+            val alignB = optionBEmbedding.cosineSimilarity(fragmentEmbedding)
 
             // Weight by fragment's emotional valence (positive fragments = stronger signal)
             val valenceWeight = (1 + similar.fragment.moodValence.value) / 2
@@ -179,7 +183,9 @@ class CreateDecisionUseCase(
     private fun calculateRegretRisk(
         userId: UserId,
         similarFragments: List<SimilarFragment>,
-        basePrior: Double
+        basePrior: Double,
+        optionAEmbedding: Embedding,
+        optionBEmbedding: Embedding
     ): Pair<Double, Double> {
         // Get historical regret rate from past decisions
         val feedbackStats = decisionRepository.getFeedbackStats(userId)
@@ -194,11 +200,42 @@ class CreateDecisionUseCase(
         // Adjust based on emotional volatility of similar fragments
         val valenceVariance = calculateValenceVariance(similarFragments)
 
+        val optionNegativityA = calculateOptionNegativity(optionAEmbedding, similarFragments)
+        val optionNegativityB = calculateOptionNegativity(optionBEmbedding, similarFragments)
+
         // Higher variance = higher regret risk (uncertainty)
-        val regretA = (historicalRegretRate + valenceVariance * 0.3).coerceIn(0.0, 1.0)
-        val regretB = (historicalRegretRate + valenceVariance * 0.3).coerceIn(0.0, 1.0)
+        val baseRegret = historicalRegretRate + valenceVariance * 0.3
+        val regretA = (baseRegret + (optionNegativityA - 0.5) * 0.3).coerceIn(0.0, 1.0)
+        val regretB = (baseRegret + (optionNegativityB - 0.5) * 0.3).coerceIn(0.0, 1.0)
 
         return regretA to regretB
+    }
+
+    private fun calculateOptionNegativity(
+        optionEmbedding: Embedding,
+        similarFragments: List<SimilarFragment>
+    ): Double {
+        if (similarFragments.isEmpty()) return 0.5
+
+        var weightedNegativity = 0.0
+        var totalWeight = 0.0
+
+        for (similar in similarFragments) {
+            val fragmentEmbedding = similar.fragment.embedding ?: continue
+            val alignment = optionEmbedding.cosineSimilarity(fragmentEmbedding)
+            val alignmentWeight = ((alignment + 1.0) / 2.0).coerceIn(0.0, 1.0)
+            if (alignmentWeight == 0.0) continue
+
+            val negativity = ((1.0 - similar.fragment.moodValence.value) / 2.0)
+                .coerceIn(0.0, 1.0)
+            val weight = similar.similarity * alignmentWeight
+
+            weightedNegativity += negativity * weight
+            totalWeight += weight
+        }
+
+        return if (totalWeight == 0.0) 0.5
+        else (weightedNegativity / totalWeight).coerceIn(0.0, 1.0)
     }
 
     private fun calculateValenceVariance(fragments: List<SimilarFragment>): Double {
