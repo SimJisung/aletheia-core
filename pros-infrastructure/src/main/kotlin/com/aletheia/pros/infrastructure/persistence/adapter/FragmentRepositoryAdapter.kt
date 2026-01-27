@@ -95,7 +95,7 @@ class FragmentRepositoryAdapter(
                 id = FragmentId(row[0] as UUID),
                 userId = UserId(row[1] as UUID),
                 textRaw = row[2] as String,
-                createdAt = row[3] as Instant,
+                createdAt = (row[3] as java.sql.Timestamp).toInstant(),
                 moodValence = MoodValence(row[4] as Double),
                 arousal = Arousal(row[5] as Double),
                 topicHint = row[6] as? String,
