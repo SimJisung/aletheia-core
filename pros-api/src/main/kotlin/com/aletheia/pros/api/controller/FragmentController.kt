@@ -64,11 +64,16 @@ class FragmentController(
     @GetMapping("/{id}")
     @Operation(summary = "Get a fragment by ID")
     fun getFragment(
+        @RequestHeader("X-User-Id") userId: String,
         @PathVariable id: String
     ): ResponseEntity<FragmentResponse> = runBlocking {
+        val userIdObj = UserId(UUID.fromString(userId))
         val fragmentId = FragmentId(UUID.fromString(id))
         val fragment = queryFragmentUseCase.getById(fragmentId)
             ?: return@runBlocking ResponseEntity.notFound().build()
+        if (fragment.userId != userIdObj) {
+            return@runBlocking ResponseEntity.notFound().build()
+        }
 
         ResponseEntity.ok(FragmentResponse.from(fragment))
     }
@@ -108,9 +113,16 @@ class FragmentController(
     @DeleteMapping("/{id}")
     @Operation(summary = "Soft-delete a fragment")
     fun deleteFragment(
+        @RequestHeader("X-User-Id") userId: String,
         @PathVariable id: String
     ): ResponseEntity<Void> = runBlocking {
+        val userIdObj = UserId(UUID.fromString(userId))
         val fragmentId = FragmentId(UUID.fromString(id))
+        val fragment = queryFragmentUseCase.getById(fragmentId)
+            ?: return@runBlocking ResponseEntity.notFound().build()
+        if (fragment.userId != userIdObj) {
+            return@runBlocking ResponseEntity.notFound().build()
+        }
         val deleted = deleteFragmentUseCase.execute(fragmentId)
 
         if (deleted) {

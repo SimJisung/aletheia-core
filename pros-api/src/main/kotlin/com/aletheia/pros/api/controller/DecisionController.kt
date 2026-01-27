@@ -79,11 +79,16 @@ class DecisionController(
     @GetMapping("/{id}")
     @Operation(summary = "Get a decision by ID")
     fun getDecision(
+        @RequestHeader("X-User-Id") userId: String,
         @PathVariable id: String
     ): ResponseEntity<DecisionResponse> {
+        val userIdObj = UserId(UUID.fromString(userId))
         val decisionId = DecisionId(UUID.fromString(id))
         val decision = decisionRepository.findById(decisionId)
             ?: return ResponseEntity.notFound().build()
+        if (decision.userId != userIdObj) {
+            return ResponseEntity.notFound().build()
+        }
 
         return ResponseEntity.ok(DecisionResponse.from(decision))
     }
@@ -126,14 +131,19 @@ class DecisionController(
     @PostMapping("/{id}/feedback")
     @Operation(summary = "Submit feedback for a decision")
     fun submitFeedback(
+        @RequestHeader("X-User-Id") userId: String,
         @PathVariable id: String,
         @Valid @RequestBody request: SubmitFeedbackRequest
     ): ResponseEntity<FeedbackResponse> {
+        val userIdObj = UserId(UUID.fromString(userId))
         val decisionId = DecisionId(UUID.fromString(id))
 
         // Check if decision exists
-        decisionRepository.findById(decisionId)
+        val decision = decisionRepository.findById(decisionId)
             ?: return ResponseEntity.notFound().build()
+        if (decision.userId != userIdObj) {
+            return ResponseEntity.notFound().build()
+        }
 
         // Check if feedback already exists
         if (decisionRepository.hasFeedback(decisionId)) {
