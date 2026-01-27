@@ -21,6 +21,7 @@ import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.utility.DockerImageName
+import java.time.Instant
 
 /**
  * Integration tests for FragmentRepositoryAdapter using Testcontainers.
@@ -129,6 +130,33 @@ class FragmentRepositoryIntegrationTest {
             assertThat(userFragments).hasSize(2)
             assertThat(userFragments.map { it.textRaw })
                 .containsExactlyInAnyOrder("첫 번째 생각", "두 번째 생각")
+        }
+    }
+
+    @Nested
+    @DisplayName("Pagination")
+    inner class Pagination {
+
+        @Test
+        fun `should apply offset-based pagination for non-aligned offsets`() {
+            // Given
+            val baseTime = Instant.parse("2025-01-01T00:00:00Z")
+            val fragments = (0 until 30).map { index ->
+                createFragment(
+                    text = "fragment-$index",
+                    createdAt = baseTime.minusSeconds(index.toLong())
+                )
+            }
+            fragments.forEach { repository.save(it) }
+
+            // When
+            val results = repository.findByUserId(userId, limit = 20, offset = 5)
+
+            // Then
+            val expected = (5 until 25).map { "fragment-$it" }
+            assertThat(results).hasSize(20)
+            assertThat(results.map { it.textRaw })
+                .containsExactlyElementsOf(expected)
         }
     }
 
@@ -269,14 +297,16 @@ class FragmentRepositoryIntegrationTest {
     private fun createFragment(
         text: String,
         user: UserId = userId,
-        embedding: Embedding = testEmbedding
+        embedding: Embedding = testEmbedding,
+        createdAt: Instant = Instant.now()
     ): ThoughtFragment {
         return ThoughtFragment.create(
             userId = user,
             textRaw = text,
             moodValence = 0.5,
             arousal = 0.5,
-            embedding = embedding
+            embedding = embedding,
+            createdAt = createdAt
         )
     }
 }
