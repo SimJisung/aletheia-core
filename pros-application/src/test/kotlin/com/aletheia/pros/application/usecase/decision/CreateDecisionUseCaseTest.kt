@@ -109,7 +109,7 @@ class CreateDecisionUseCaseTest {
                 title = "휴가 계획",
                 optionA = "여행 가기",
                 optionB = "집에서 쉬기",
-                priorityAxis = ValueAxis.HEDONISM
+                priorityAxis = ValueAxis.FINANCIAL
             )
 
             val fragments = createMockFragments()
@@ -125,8 +125,8 @@ class CreateDecisionUseCaseTest {
             val result = useCase.execute(command)
 
             // Then
-            assertThat(result.priorityAxis).isEqualTo(ValueAxis.HEDONISM)
-            assertThat(result.result.valueAlignment).containsKey(ValueAxis.HEDONISM)
+            assertThat(result.priorityAxis).isEqualTo(ValueAxis.FINANCIAL)
+            assertThat(result.result.valueAlignment).containsKey(ValueAxis.FINANCIAL)
         }
 
         @Test

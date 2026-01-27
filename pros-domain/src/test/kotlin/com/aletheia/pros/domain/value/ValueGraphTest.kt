@@ -29,14 +29,14 @@ class ValueGraphTest {
             val axisNames = ValueAxis.all().map { it.name }
 
             assertThat(axisNames).containsExactlyInAnyOrder(
+                "GROWTH",
+                "STABILITY",
+                "FINANCIAL",
+                "AUTONOMY",
+                "RELATIONSHIP",
                 "ACHIEVEMENT",
-                "HEDONISM",
-                "SECURITY",
-                "SELF_DIRECTION",
-                "BENEVOLENCE",
-                "CONFORMITY",
-                "POWER",
-                "UNIVERSALISM"
+                "HEALTH",
+                "MEANING"
             )
         }
 
@@ -72,7 +72,7 @@ class ValueGraphTest {
 
         @Test
         fun `should update valence with new fragment`() {
-            val node = ValueNode.createInitial(userId, ValueAxis.HEDONISM)
+            val node = ValueNode.createInitial(userId, ValueAxis.FINANCIAL)
 
             val updated = node.updateWithFragment(0.8)
 
@@ -82,7 +82,7 @@ class ValueGraphTest {
 
         @Test
         fun `should calculate running average correctly`() {
-            var node = ValueNode.createInitial(userId, ValueAxis.SECURITY)
+            var node = ValueNode.createInitial(userId, ValueAxis.STABILITY)
 
             // Add first fragment with valence 0.6
             node = node.updateWithFragment(0.6)
@@ -104,7 +104,7 @@ class ValueGraphTest {
 
         @Test
         fun `should track trend direction`() {
-            var node = ValueNode.createInitial(userId, ValueAxis.SELF_DIRECTION)
+            var node = ValueNode.createInitial(userId, ValueAxis.AUTONOMY)
 
             // Start with negative, then improve
             node = node.updateWithFragment(-0.5)
@@ -116,7 +116,7 @@ class ValueGraphTest {
 
         @Test
         fun `should clamp valence within bounds`() {
-            var node = ValueNode.createInitial(userId, ValueAxis.BENEVOLENCE)
+            var node = ValueNode.createInitial(userId, ValueAxis.RELATIONSHIP)
 
             // Extreme positive
             node = node.updateWithFragment(5.0) // Should clamp to 1.0
@@ -133,7 +133,7 @@ class ValueGraphTest {
             val edge = ValueEdge.createSupport(
                 userId = userId,
                 fromAxis = ValueAxis.ACHIEVEMENT,
-                toAxis = ValueAxis.POWER
+                toAxis = ValueAxis.FINANCIAL
             )
 
             assertThat(edge.edgeType).isEqualTo(EdgeType.SUPPORT)
@@ -145,8 +145,8 @@ class ValueGraphTest {
         fun `should create conflict edge`() {
             val edge = ValueEdge.createConflict(
                 userId = userId,
-                fromAxis = ValueAxis.HEDONISM,
-                toAxis = ValueAxis.CONFORMITY
+                fromAxis = ValueAxis.FINANCIAL,
+                toAxis = ValueAxis.HEALTH
             )
 
             assertThat(edge.edgeType).isEqualTo(EdgeType.CONFLICT)
@@ -159,8 +159,8 @@ class ValueGraphTest {
             assertThatThrownBy {
                 ValueEdge.createSupport(
                     userId = userId,
-                    fromAxis = ValueAxis.SECURITY,
-                    toAxis = ValueAxis.SECURITY
+                    fromAxis = ValueAxis.STABILITY,
+                    toAxis = ValueAxis.STABILITY
                 )
             }.isInstanceOf(IllegalArgumentException::class.java)
                 .hasMessageContaining("self")
@@ -170,8 +170,8 @@ class ValueGraphTest {
         fun `should update edge weight`() {
             val edge = ValueEdge.createSupport(
                 userId = userId,
-                fromAxis = ValueAxis.BENEVOLENCE,
-                toAxis = ValueAxis.UNIVERSALISM
+                fromAxis = ValueAxis.RELATIONSHIP,
+                toAxis = ValueAxis.MEANING
             )
 
             val updated = edge.updateWeight(0.8)
@@ -186,7 +186,7 @@ class ValueGraphTest {
             val edge = ValueEdge.createSupport(
                 userId = userId,
                 fromAxis = ValueAxis.ACHIEVEMENT,
-                toAxis = ValueAxis.SELF_DIRECTION
+                toAxis = ValueAxis.AUTONOMY
             )
 
             val updated = edge.updateWeight(1.5)
@@ -227,11 +227,11 @@ class ValueGraphTest {
         fun `should filter conflict edges`() {
             val nodes = listOf(
                 ValueNode.createInitial(userId, ValueAxis.ACHIEVEMENT),
-                ValueNode.createInitial(userId, ValueAxis.HEDONISM)
+                ValueNode.createInitial(userId, ValueAxis.FINANCIAL)
             )
             val edges = listOf(
-                ValueEdge.createConflict(userId, ValueAxis.ACHIEVEMENT, ValueAxis.HEDONISM),
-                ValueEdge.createSupport(userId, ValueAxis.ACHIEVEMENT, ValueAxis.POWER)
+                ValueEdge.createConflict(userId, ValueAxis.ACHIEVEMENT, ValueAxis.FINANCIAL),
+                ValueEdge.createSupport(userId, ValueAxis.ACHIEVEMENT, ValueAxis.GROWTH)
             )
             val graph = ValueGraph(userId, nodes, edges)
 
@@ -242,12 +242,12 @@ class ValueGraphTest {
         @Test
         fun `should filter support edges`() {
             val nodes = listOf(
-                ValueNode.createInitial(userId, ValueAxis.BENEVOLENCE),
-                ValueNode.createInitial(userId, ValueAxis.UNIVERSALISM)
+                ValueNode.createInitial(userId, ValueAxis.RELATIONSHIP),
+                ValueNode.createInitial(userId, ValueAxis.MEANING)
             )
             val edges = listOf(
-                ValueEdge.createSupport(userId, ValueAxis.BENEVOLENCE, ValueAxis.UNIVERSALISM),
-                ValueEdge.createConflict(userId, ValueAxis.ACHIEVEMENT, ValueAxis.HEDONISM)
+                ValueEdge.createSupport(userId, ValueAxis.RELATIONSHIP, ValueAxis.MEANING),
+                ValueEdge.createConflict(userId, ValueAxis.ACHIEVEMENT, ValueAxis.FINANCIAL)
             )
             val graph = ValueGraph(userId, nodes, edges)
 
@@ -259,32 +259,32 @@ class ValueGraphTest {
         fun `should get top positive values`() {
             val nodes = listOf(
                 createNode(ValueAxis.ACHIEVEMENT, 0.8),
-                createNode(ValueAxis.HEDONISM, 0.6),
-                createNode(ValueAxis.SECURITY, -0.3),
-                createNode(ValueAxis.POWER, 0.9)
+                createNode(ValueAxis.FINANCIAL, 0.6),
+                createNode(ValueAxis.STABILITY, -0.3),
+                createNode(ValueAxis.GROWTH, 0.9)
             )
             val graph = ValueGraph(userId, nodes, emptyList())
 
             val topPositive = graph.topPositiveValues(2)
 
             assertThat(topPositive).hasSize(2)
-            assertThat(topPositive[0].axis).isEqualTo(ValueAxis.POWER)
+            assertThat(topPositive[0].axis).isEqualTo(ValueAxis.GROWTH)
             assertThat(topPositive[1].axis).isEqualTo(ValueAxis.ACHIEVEMENT)
         }
 
         @Test
         fun `should get top negative values`() {
             val nodes = listOf(
-                createNode(ValueAxis.CONFORMITY, -0.7),
-                createNode(ValueAxis.SECURITY, -0.3),
-                createNode(ValueAxis.HEDONISM, 0.5)
+                createNode(ValueAxis.HEALTH, -0.7),
+                createNode(ValueAxis.STABILITY, -0.3),
+                createNode(ValueAxis.FINANCIAL, 0.5)
             )
             val graph = ValueGraph(userId, nodes, emptyList())
 
             val topNegative = graph.topNegativeValues(2)
 
             assertThat(topNegative).hasSize(2)
-            assertThat(topNegative[0].axis).isEqualTo(ValueAxis.CONFORMITY)
+            assertThat(topNegative[0].axis).isEqualTo(ValueAxis.HEALTH)
         }
     }
 

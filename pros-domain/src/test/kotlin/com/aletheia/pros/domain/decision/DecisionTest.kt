@@ -115,7 +115,7 @@ class DecisionTest {
             val evidenceIds = listOf(FragmentId.generate(), FragmentId.generate())
             val valueAlignment = mapOf(
                 ValueAxis.ACHIEVEMENT to 0.8,
-                ValueAxis.SECURITY to -0.3
+                ValueAxis.STABILITY to -0.3
             )
 
             val result = DecisionResult.compute(
@@ -136,7 +136,7 @@ class DecisionTest {
                 .isEqualTo(1.0, org.assertj.core.data.Offset.offset(0.001))
 
             assertThat(result.evidenceFragmentIds).hasSize(2)
-            assertThat(result.valueAlignment).containsKeys(ValueAxis.ACHIEVEMENT, ValueAxis.SECURITY)
+            assertThat(result.valueAlignment).containsKeys(ValueAxis.ACHIEVEMENT, ValueAxis.STABILITY)
         }
 
         @Test
