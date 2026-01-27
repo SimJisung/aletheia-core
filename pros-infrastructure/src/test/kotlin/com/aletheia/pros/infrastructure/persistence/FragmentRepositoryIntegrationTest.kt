@@ -158,6 +158,28 @@ class FragmentRepositoryIntegrationTest {
             assertThat(results.map { it.textRaw })
                 .containsExactlyElementsOf(expected)
         }
+
+        @Test
+        fun `should return remaining items when offset crosses page boundary`() {
+            // Given
+            val baseTime = Instant.parse("2025-01-01T00:00:00Z")
+            val fragments = (0 until 30).map { index ->
+                createFragment(
+                    text = "fragment-$index",
+                    createdAt = baseTime.minusSeconds(index.toLong())
+                )
+            }
+            fragments.forEach { repository.save(it) }
+
+            // When
+            val results = repository.findByUserId(userId, limit = 20, offset = 25)
+
+            // Then
+            val expected = (25 until 30).map { "fragment-$it" }
+            assertThat(results).hasSize(5)
+            assertThat(results.map { it.textRaw })
+                .containsExactlyElementsOf(expected)
+        }
     }
 
     @Nested

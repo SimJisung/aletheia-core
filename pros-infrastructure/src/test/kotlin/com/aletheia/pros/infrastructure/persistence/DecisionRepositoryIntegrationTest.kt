@@ -100,6 +100,28 @@ class DecisionRepositoryIntegrationTest {
             assertThat(results.map { it.title })
                 .containsExactlyElementsOf(expected)
         }
+
+        @Test
+        fun `should return remaining items when offset crosses page boundary`() {
+            // Given
+            val baseTime = Instant.parse("2025-01-01T00:00:00Z")
+            val decisions = (0 until 30).map { index ->
+                createDecision(
+                    title = "decision-$index",
+                    createdAt = baseTime.minusSeconds(index.toLong())
+                )
+            }
+            decisions.forEach { repository.save(it) }
+
+            // When
+            val results = repository.findByUserId(userId, limit = 20, offset = 25)
+
+            // Then
+            val expected = (25 until 30).map { "decision-$it" }
+            assertThat(results).hasSize(5)
+            assertThat(results.map { it.title })
+                .containsExactlyElementsOf(expected)
+        }
     }
 
     private fun createDecision(

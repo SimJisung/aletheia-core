@@ -47,12 +47,26 @@ class FragmentRepositoryAdapter(
     @Transactional(readOnly = true)
     override fun findByUserId(userId: UserId, limit: Int, offset: Int): List<ThoughtFragment> {
         val pageIndex = offset / limit
-        val intraOffset = offset % limit
-        val pageSize = limit + intraOffset
-        val pageable = PageRequest.of(pageIndex, pageSize)
-        val page = jpaRepository.findByUserIdNotDeleted(userId.value, pageable)
-        val content = page.content.drop(intraOffset).take(limit)
-        return mapper.toDomainList(content)
+        val pageOffset = offset % limit
+        val page = jpaRepository.findByUserIdNotDeleted(userId.value, PageRequest.of(pageIndex, limit))
+        if (pageOffset == 0) {
+            return mapper.toDomainList(page.content)
+        }
+        if (page.content.size <= pageOffset) {
+            return emptyList()
+        }
+
+        val firstPageContent = page.content.drop(pageOffset)
+        if (!page.hasNext()) {
+            return mapper.toDomainList(firstPageContent)
+        }
+
+        val nextPage = jpaRepository.findByUserIdNotDeleted(
+            userId.value,
+            PageRequest.of(pageIndex + 1, limit)
+        )
+        val combined = firstPageContent + nextPage.content
+        return mapper.toDomainList(combined.take(limit))
     }
 
     @Transactional(readOnly = true)
