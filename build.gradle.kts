@@ -17,7 +17,6 @@ allprojects {
 
     repositories {
         mavenCentral()
-        maven { url = uri("https://repo.spring.io/milestone") }
     }
 }
 
@@ -54,9 +53,9 @@ subprojects {
 
         // Testing
         testImplementation(kotlin("test"))
-        testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
-        testImplementation("io.mockk:mockk:1.13.14")
-        testImplementation("org.assertj:assertj-core:3.27.2")
+        testImplementation("org.junit.jupiter:junit-jupiter:5.14.2")
+        testImplementation("io.mockk:mockk:1.14.7")
+        testImplementation("org.assertj:assertj-core:3.27.6")
     }
 
     tasks.withType<Test> {
