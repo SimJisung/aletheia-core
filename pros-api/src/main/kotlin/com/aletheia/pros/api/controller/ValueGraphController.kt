@@ -41,13 +41,16 @@ class ValueGraphController(
     ): ResponseEntity<ValueGraphResponse> {
         val userIdObj = UserId(UUID.fromString(userId))
 
-        // Initialize value graph if it doesn't exist
-        if (!valueGraphRepository.hasValueGraph(userIdObj)) {
+        var graph = valueGraphRepository.findValueGraph(userIdObj)
+        if (graph == null) {
+            // Ensure value graph nodes exist (idempotent under concurrency)
             valueGraphRepository.initializeNodesForUser(userIdObj)
+            graph = valueGraphRepository.findValueGraph(userIdObj)
         }
 
-        val graph = valueGraphRepository.findValueGraph(userIdObj)
-            ?: return ResponseEntity.notFound().build()
+        if (graph == null) {
+            return ResponseEntity.notFound().build()
+        }
 
         return ResponseEntity.ok(ValueGraphResponse.from(graph))
     }

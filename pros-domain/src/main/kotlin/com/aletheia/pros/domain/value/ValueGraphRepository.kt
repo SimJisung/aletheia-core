@@ -38,7 +38,8 @@ interface ValueGraphRepository {
     fun findNodesByUserId(userId: UserId): List<ValueNode>
 
     /**
-     * Initializes all 8 value nodes for a new user.
+     * Initializes all 8 value nodes for a user if missing.
+     * Must be safe for concurrent calls.
      */
     fun initializeNodesForUser(userId: UserId): List<ValueNode>
 

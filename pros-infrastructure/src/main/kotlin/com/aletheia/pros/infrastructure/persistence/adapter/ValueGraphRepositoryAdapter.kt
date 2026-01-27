@@ -51,7 +51,18 @@ class ValueGraphRepositoryAdapter(
     override fun initializeNodesForUser(userId: UserId): List<ValueNode> {
         val now = Instant.now()
         val nodes = ValueNode.createAllForUser(userId, now)
-        return nodes.map { saveNode(it) }
+        nodes.forEach { node ->
+            nodeRepository.insertIfAbsent(
+                id = node.id.value,
+                userId = node.userId.value,
+                axis = node.axis.name,
+                avgValence = node.avgValence,
+                recentTrend = node.recentTrend.name,
+                fragmentCount = node.fragmentCount,
+                updatedAt = node.updatedAt
+            )
+        }
+        return mapper.toNodeDomainList(nodeRepository.findByUserId(userId.value))
     }
 
     // ==================== ValueEdge Operations ====================
