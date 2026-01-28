@@ -2,11 +2,16 @@ package com.aletheia.pros.infrastructure.config
 
 import com.aletheia.pros.application.port.output.EmbeddingPort
 import com.aletheia.pros.application.port.output.EmotionAnalysisPort
+import com.aletheia.pros.application.port.output.ExplanationPort
 import com.aletheia.pros.application.usecase.decision.CreateDecisionUseCase
+import com.aletheia.pros.application.usecase.decision.GetDecisionExplanationUseCase
+import com.aletheia.pros.application.usecase.decision.QueryDecisionUseCase
+import com.aletheia.pros.application.usecase.decision.SubmitFeedbackUseCase
 import com.aletheia.pros.application.usecase.decision.UserSettingsProvider
 import com.aletheia.pros.application.usecase.fragment.CreateFragmentUseCase
 import com.aletheia.pros.application.usecase.fragment.DeleteFragmentUseCase
 import com.aletheia.pros.application.usecase.fragment.QueryFragmentUseCase
+import com.aletheia.pros.application.usecase.value.QueryValueGraphUseCase
 import com.aletheia.pros.domain.decision.DecisionRepository
 import com.aletheia.pros.domain.fragment.FragmentRepository
 import com.aletheia.pros.domain.value.ValueGraphRepository
@@ -68,6 +73,48 @@ class UseCaseConfig {
             valueGraphRepository = valueGraphRepository,
             embeddingPort = embeddingPort,
             userSettingsProvider = userSettingsProvider
+        )
+    }
+
+    @Bean
+    fun getDecisionExplanationUseCase(
+        decisionRepository: DecisionRepository,
+        fragmentRepository: FragmentRepository,
+        explanationPort: ExplanationPort
+    ): GetDecisionExplanationUseCase {
+        return GetDecisionExplanationUseCase(
+            decisionRepository = decisionRepository,
+            fragmentRepository = fragmentRepository,
+            explanationPort = explanationPort
+        )
+    }
+
+    @Bean
+    fun queryValueGraphUseCase(
+        valueGraphRepository: ValueGraphRepository,
+        fragmentRepository: FragmentRepository
+    ): QueryValueGraphUseCase {
+        return QueryValueGraphUseCase(
+            valueGraphRepository = valueGraphRepository,
+            fragmentRepository = fragmentRepository
+        )
+    }
+
+    @Bean
+    fun queryDecisionUseCase(
+        decisionRepository: DecisionRepository
+    ): QueryDecisionUseCase {
+        return QueryDecisionUseCase(
+            decisionRepository = decisionRepository
+        )
+    }
+
+    @Bean
+    fun submitFeedbackUseCase(
+        decisionRepository: DecisionRepository
+    ): SubmitFeedbackUseCase {
+        return SubmitFeedbackUseCase(
+            decisionRepository = decisionRepository
         )
     }
 }

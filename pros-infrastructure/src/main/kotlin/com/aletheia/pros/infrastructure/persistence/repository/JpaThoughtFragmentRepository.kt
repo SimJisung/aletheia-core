@@ -133,4 +133,13 @@ interface JpaThoughtFragmentRepository : JpaRepository<ThoughtFragmentEntity, UU
         WHERE f.id = :id AND f.deletedAt IS NULL
     """)
     fun findByIdNotDeleted(@Param("id") id: UUID): ThoughtFragmentEntity?
+
+    /**
+     * Finds multiple fragments by their IDs, excluding deleted ones.
+     */
+    @Query("""
+        SELECT f FROM ThoughtFragmentEntity f
+        WHERE f.id IN :ids AND f.deletedAt IS NULL
+    """)
+    fun findByIdsNotDeleted(@Param("ids") ids: List<UUID>): List<ThoughtFragmentEntity>
 }
