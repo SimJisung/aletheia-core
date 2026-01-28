@@ -129,4 +129,12 @@ class FragmentRepositoryAdapter(
     override fun exists(id: FragmentId): Boolean {
         return jpaRepository.existsByIdNotDeleted(id.value)
     }
+
+    @Transactional(readOnly = true)
+    override fun findByIds(ids: List<FragmentId>): List<ThoughtFragment> {
+        if (ids.isEmpty()) return emptyList()
+        val uuids = ids.map { it.value }
+        val entities = jpaRepository.findByIdsNotDeleted(uuids)
+        return mapper.toDomainList(entities)
+    }
 }

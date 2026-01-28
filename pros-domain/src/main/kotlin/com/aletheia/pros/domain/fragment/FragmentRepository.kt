@@ -88,6 +88,15 @@ interface FragmentRepository {
      * Checks if a fragment exists (and is not deleted).
      */
     fun exists(id: FragmentId): Boolean
+
+    /**
+     * Finds multiple fragments by their IDs.
+     * Excludes soft-deleted fragments.
+     *
+     * @param ids The fragment IDs to search for
+     * @return List of found fragments (may be smaller than input if some are deleted/not found)
+     */
+    fun findByIds(ids: List<FragmentId>): List<ThoughtFragment>
 }
 
 /**

@@ -1,12 +1,17 @@
 package com.aletheia.pros.api.controller
 
+import com.aletheia.pros.api.dto.response.ValueConflictResponse
+import com.aletheia.pros.api.dto.response.ValueEdgeResponse
 import com.aletheia.pros.api.dto.response.ValueGraphResponse
 import com.aletheia.pros.api.dto.response.ValueNodeResponse
+import com.aletheia.pros.api.dto.response.ValueSummaryResponse
+import com.aletheia.pros.application.usecase.value.QueryValueGraphUseCase
 import com.aletheia.pros.domain.common.UserId
 import com.aletheia.pros.domain.value.ValueAxis
 import com.aletheia.pros.domain.value.ValueGraphRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import kotlinx.coroutines.runBlocking
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
@@ -24,7 +29,8 @@ import java.util.UUID
 @RequestMapping("/v1/values")
 @Tag(name = "Values", description = "User value graph (read-only)")
 class ValueGraphController(
-    private val valueGraphRepository: ValueGraphRepository
+    private val valueGraphRepository: ValueGraphRepository,
+    private val queryValueGraphUseCase: QueryValueGraphUseCase
 ) {
 
     /**
@@ -94,6 +100,53 @@ class ValueGraphController(
         }
 
         return ResponseEntity.ok(axes)
+    }
+
+    /**
+     * Gets all edges in the user's value graph.
+     *
+     * Edges can be SUPPORT (values reinforce each other) or
+     * CONFLICT (values are in tension).
+     */
+    @GetMapping("/edges")
+    @Operation(summary = "Get all edges in user's value graph")
+    fun getValueEdges(
+        @RequestHeader("X-User-Id") userId: String
+    ): ResponseEntity<List<ValueEdgeResponse>> = runBlocking {
+        val userIdObj = UserId(UUID.fromString(userId))
+        val edges = queryValueGraphUseCase.getEdges(userIdObj)
+        ResponseEntity.ok(edges.map { ValueEdgeResponse.from(it) })
+    }
+
+    /**
+     * Gets value conflicts (tension between values).
+     *
+     * Note: Conflicts are NORMAL and expected. This is informational,
+     * not a problem to be fixed. Humans naturally have competing values.
+     */
+    @GetMapping("/conflicts")
+    @Operation(summary = "Get value conflicts (tension between values)")
+    fun getValueConflicts(
+        @RequestHeader("X-User-Id") userId: String
+    ): ResponseEntity<List<ValueConflictResponse>> = runBlocking {
+        val userIdObj = UserId(UUID.fromString(userId))
+        val conflicts = queryValueGraphUseCase.getConflicts(userIdObj)
+        ResponseEntity.ok(conflicts.map { ValueConflictResponse.from(it) })
+    }
+
+    /**
+     * Gets a summary of the user's value profile.
+     *
+     * Returns top positive/negative values, dominant trend, and conflict count.
+     */
+    @GetMapping("/summary")
+    @Operation(summary = "Get user's value profile summary")
+    fun getValueSummary(
+        @RequestHeader("X-User-Id") userId: String
+    ): ResponseEntity<ValueSummaryResponse> = runBlocking {
+        val userIdObj = UserId(UUID.fromString(userId))
+        val summary = queryValueGraphUseCase.getSummary(userIdObj)
+        ResponseEntity.ok(ValueSummaryResponse.from(summary))
     }
 }
 

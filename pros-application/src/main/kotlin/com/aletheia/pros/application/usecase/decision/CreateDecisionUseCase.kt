@@ -89,9 +89,9 @@ class CreateDecisionUseCase(
             .map { it.fragment.id }
 
         val valueAlignment = calculateValueAlignment(
-            command.optionA,
-            command.optionB,
-            valueGraph?.nodes ?: emptyList()
+            optionAEmbedding = optionAEmbedding,
+            optionBEmbedding = optionBEmbedding,
+            nodes = valueGraph?.nodes ?: emptyList()
         )
 
         val result = DecisionResult.compute(
@@ -248,14 +248,66 @@ class CreateDecisionUseCase(
         return variance.coerceIn(0.0, 1.0)
     }
 
-    private fun calculateValueAlignment(
-        optionA: String,
-        optionB: String,
+    /**
+     * Calculates how each option aligns with the user's value axes.
+     *
+     * Algorithm:
+     * 1. Generate embedding for each ValueAxis description
+     * 2. Calculate cosine similarity between each option and each axis
+     * 3. Apply user's value node weights (if available)
+     * 4. Compute differential alignment: (simA - simB + 1) / 2
+     *    - 0.5 = neutral (both options align equally)
+     *    - >0.5 = option A aligns more with this axis
+     *    - <0.5 = option B aligns more with this axis
+     *
+     * This is purely descriptive - it describes how options relate to values,
+     * NOT which option is "better".
+     */
+    private suspend fun calculateValueAlignment(
+        optionAEmbedding: Embedding,
+        optionBEmbedding: Embedding,
         nodes: List<com.aletheia.pros.domain.value.ValueNode>
     ): Map<ValueAxis, Double> {
-        // Placeholder: In production, use embeddings to calculate alignment
-        // For now, return neutral alignment
-        return ValueAxis.all().associateWith { 0.5 }
+        val nodeMap = nodes.associateBy { it.axis }
+        val alignments = mutableMapOf<ValueAxis, Double>()
+
+        for (axis in ValueAxis.all()) {
+            // Generate embedding for this value axis
+            val axisText = buildAxisText(axis)
+            val axisEmbedding = embeddingPort.embed(axisText)
+
+            // Calculate similarity of each option to this axis
+            val simA = optionAEmbedding.cosineSimilarity(axisEmbedding)
+            val simB = optionBEmbedding.cosineSimilarity(axisEmbedding)
+
+            // Compute differential alignment (normalized to 0-1 range)
+            // >0.5 means option A is more aligned, <0.5 means option B is more aligned
+            var alignment = (simA - simB + 1.0) / 2.0
+
+            // Apply user's value weight if available
+            // If user has strong positive valence for this axis, amplify the difference from neutral
+            // If user has negative valence, dampen the difference
+            val node = nodeMap[axis]
+            if (node != null && node.fragmentCount > 0) {
+                val userWeight = node.avgValence  // -1.0 to 1.0
+                val normalizedWeight = (userWeight + 1.0) / 2.0  // 0.0 to 1.0
+
+                // Amplify or dampen the deviation from neutral (0.5)
+                val deviation = alignment - 0.5
+                alignment = 0.5 + (deviation * normalizedWeight * 2.0)
+            }
+
+            alignments[axis] = alignment.coerceIn(0.0, 1.0)
+        }
+
+        return alignments
+    }
+
+    /**
+     * Builds descriptive text for a value axis to generate its embedding.
+     */
+    private fun buildAxisText(axis: ValueAxis): String {
+        return "Value: ${axis.displayNameEn}. ${axis.description}"
     }
 }
 

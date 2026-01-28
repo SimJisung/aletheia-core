@@ -1,5 +1,6 @@
 package com.aletheia.pros.api.dto.response
 
+import com.aletheia.pros.application.port.input.DecisionExplanation
 import com.aletheia.pros.domain.decision.Decision
 import java.time.Instant
 
@@ -97,3 +98,27 @@ data class DecisionListResponse(
     val total: Long,
     val hasMore: Boolean
 )
+
+/**
+ * Response for a decision explanation.
+ *
+ * The explanation describes WHY the calculation produced these results.
+ * It does NOT recommend or advise.
+ */
+data class DecisionExplanationResponse(
+    val decisionId: String,
+    val summary: String,
+    val evidenceSummary: String,
+    val valueSummary: String
+) {
+    companion object {
+        fun from(explanation: DecisionExplanation): DecisionExplanationResponse {
+            return DecisionExplanationResponse(
+                decisionId = explanation.decisionId.toString(),
+                summary = explanation.summary,
+                evidenceSummary = explanation.evidenceSummary,
+                valueSummary = explanation.valueSummary
+            )
+        }
+    }
+}
