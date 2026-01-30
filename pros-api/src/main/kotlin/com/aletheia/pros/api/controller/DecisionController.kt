@@ -6,6 +6,7 @@ import com.aletheia.pros.api.dto.response.DecisionExplanationResponse
 import com.aletheia.pros.api.dto.response.DecisionListResponse
 import com.aletheia.pros.api.dto.response.DecisionResponse
 import com.aletheia.pros.api.dto.response.FeedbackResponse
+import com.aletheia.pros.api.security.SecurityUtils
 import com.aletheia.pros.application.port.input.CreateDecisionCommand
 import com.aletheia.pros.application.port.input.ListDecisionsQuery
 import com.aletheia.pros.application.port.input.SubmitFeedbackCommand
@@ -16,7 +17,6 @@ import com.aletheia.pros.application.usecase.decision.GetDecisionExplanationUseC
 import com.aletheia.pros.application.usecase.decision.QueryDecisionUseCase
 import com.aletheia.pros.application.usecase.decision.SubmitFeedbackUseCase
 import com.aletheia.pros.domain.common.DecisionId
-import com.aletheia.pros.domain.common.UserId
 import com.aletheia.pros.domain.decision.FeedbackType
 import com.aletheia.pros.domain.value.ValueAxis
 import io.swagger.v3.oas.annotations.Operation
@@ -56,9 +56,9 @@ class DecisionController(
     @PostMapping
     @Operation(summary = "Create a decision projection")
     suspend fun createDecision(
-        @RequestHeader("X-User-Id") userId: String,
         @Valid @RequestBody request: CreateDecisionRequest
     ): ResponseEntity<DecisionResponse> {
+        val userId = SecurityUtils.getCurrentUserId()
         val priorityAxis = request.priorityAxis?.let {
             try {
                 ValueAxis.valueOf(it)
@@ -68,7 +68,7 @@ class DecisionController(
         }
 
         val command = CreateDecisionCommand(
-            userId = UserId(UUID.fromString(userId)),
+            userId = userId,
             title = request.title,
             optionA = request.optionA,
             optionB = request.optionB,
@@ -85,13 +85,12 @@ class DecisionController(
     @GetMapping("/{id}")
     @Operation(summary = "Get a decision by ID")
     suspend fun getDecision(
-        @RequestHeader("X-User-Id") userId: String,
         @PathVariable id: String
     ): ResponseEntity<DecisionResponse> {
-        val userIdObj = UserId(UUID.fromString(userId))
+        val userId = SecurityUtils.getCurrentUserId()
         val decisionId = DecisionId(UUID.fromString(id))
 
-        val decision = queryDecisionUseCase.getDecision(decisionId, userIdObj)
+        val decision = queryDecisionUseCase.getDecision(decisionId, userId)
             ?: return ResponseEntity.notFound().build<DecisionResponse>()
 
         return ResponseEntity.ok(DecisionResponse.from(decision))
@@ -106,14 +105,13 @@ class DecisionController(
     @GetMapping("/{id}/explanation")
     @Operation(summary = "Get LLM-generated explanation for a decision")
     suspend fun getDecisionExplanation(
-        @RequestHeader("X-User-Id") userId: String,
         @PathVariable id: String
     ): ResponseEntity<DecisionExplanationResponse> {
-        val userIdObj = UserId(UUID.fromString(userId))
+        val userId = SecurityUtils.getCurrentUserId()
         val decisionId = DecisionId(UUID.fromString(id))
 
         // Verify ownership first
-        val decision = queryDecisionUseCase.getDecision(decisionId, userIdObj)
+        val decision = queryDecisionUseCase.getDecision(decisionId, userId)
             ?: return ResponseEntity.notFound().build<DecisionExplanationResponse>()
 
         return try {
@@ -130,14 +128,13 @@ class DecisionController(
     @GetMapping
     @Operation(summary = "List decisions with pagination")
     suspend fun listDecisions(
-        @RequestHeader("X-User-Id") userId: String,
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") offset: Int
     ): ResponseEntity<DecisionListResponse> {
-        val userIdObj = UserId(UUID.fromString(userId))
+        val userId = SecurityUtils.getCurrentUserId()
 
         val query = ListDecisionsQuery(
-            userId = userIdObj,
+            userId = userId,
             limit = limit.coerceIn(1, 100),
             offset = offset.coerceAtLeast(0)
         )
@@ -163,11 +160,10 @@ class DecisionController(
     @PostMapping("/{id}/feedback")
     @Operation(summary = "Submit feedback for a decision")
     suspend fun submitFeedback(
-        @RequestHeader("X-User-Id") userId: String,
         @PathVariable id: String,
         @Valid @RequestBody request: SubmitFeedbackRequest
     ): ResponseEntity<FeedbackResponse> {
-        val userIdObj = UserId(UUID.fromString(userId))
+        val userId = SecurityUtils.getCurrentUserId()
         val decisionId = DecisionId(UUID.fromString(id))
 
         val feedbackType = FeedbackType.valueOf(request.feedbackType)
@@ -176,7 +172,7 @@ class DecisionController(
             feedbackType = feedbackType
         )
 
-        return when (val result = submitFeedbackUseCase.execute(command, userIdObj)) {
+        return when (val result = submitFeedbackUseCase.execute(command, userId)) {
             is FeedbackResult.Success ->
                 ResponseEntity.status(HttpStatus.CREATED).body(FeedbackResponse.from(result.feedback))
             is FeedbackResult.NotFound ->
@@ -191,11 +187,9 @@ class DecisionController(
      */
     @GetMapping("/pending-feedback")
     @Operation(summary = "Get decisions that need feedback")
-    suspend fun getDecisionsNeedingFeedback(
-        @RequestHeader("X-User-Id") userId: String
-    ): ResponseEntity<List<DecisionResponse>> {
-        val userIdObj = UserId(UUID.fromString(userId))
-        val decisions = queryDecisionUseCase.getPendingFeedbackDecisions(userIdObj)
+    suspend fun getDecisionsNeedingFeedback(): ResponseEntity<List<DecisionResponse>> {
+        val userId = SecurityUtils.getCurrentUserId()
+        val decisions = queryDecisionUseCase.getPendingFeedbackDecisions(userId)
 
         return ResponseEntity.ok(decisions.map { DecisionResponse.from(it) })
     }

@@ -2,17 +2,98 @@
 
 Base URL: `http://localhost:8080/api`
 
-All endpoints require the `X-User-Id` header for user identification.
-
 ---
 
 ## Authentication
 
-All requests must include the `X-User-Id` header:
+PROS uses JWT (JSON Web Token) based authentication. All protected endpoints require a valid Bearer token.
+
+### Register
+
+Creates a new user account.
 
 ```http
-X-User-Id: <uuid>
+POST /v1/auth/register
 ```
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securePassword123",
+  "name": "John Doe"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| email | string | Yes | User email address (unique) |
+| password | string | Yes | Password (min 8 characters) |
+| name | string | Yes | Display name (max 100 chars) |
+
+**Response:** `201 Created`
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresIn": 86400000,
+  "user": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "email": "user@example.com",
+    "name": "John Doe"
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request` - Invalid input or email already exists
+
+---
+
+### Login
+
+Authenticates a user and returns a JWT token.
+
+```http
+POST /v1/auth/login
+```
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securePassword123"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresIn": 86400000,
+  "user": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "email": "user@example.com",
+    "name": "John Doe"
+  }
+}
+```
+
+**Error Responses:**
+- `401 Unauthorized` - Invalid email or password
+
+---
+
+### Using the Token
+
+Include the token in the `Authorization` header for all protected endpoints:
+
+```http
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Token Expiration:**
+- Tokens expire after 24 hours (configurable)
+- Request a new token using the login endpoint when expired
 
 ---
 
@@ -26,13 +107,8 @@ Creates a new thought fragment with automatic emotion analysis and embedding gen
 
 ```http
 POST /v1/fragments
+Authorization: Bearer <token>
 ```
-
-**Request Headers:**
-| Header | Type | Required | Description |
-|--------|------|----------|-------------|
-| X-User-Id | UUID | Yes | User identifier |
-| Content-Type | string | Yes | application/json |
 
 **Request Body:**
 ```json
@@ -63,6 +139,7 @@ POST /v1/fragments
 
 **Error Responses:**
 - `400 Bad Request` - Invalid input (empty text, text too long)
+- `401 Unauthorized` - Missing or invalid token
 
 ---
 
@@ -72,6 +149,7 @@ Retrieves a fragment by ID.
 
 ```http
 GET /v1/fragments/{id}
+Authorization: Bearer <token>
 ```
 
 **Path Parameters:**
@@ -94,6 +172,7 @@ GET /v1/fragments/{id}
 ```
 
 **Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
 - `404 Not Found` - Fragment not found or not owned by user
 
 ---
@@ -104,6 +183,7 @@ Lists fragments with pagination.
 
 ```http
 GET /v1/fragments?limit=20&offset=0
+Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
@@ -137,11 +217,13 @@ Marks a fragment as deleted. The data is preserved (append-only principle).
 
 ```http
 DELETE /v1/fragments/{id}
+Authorization: Bearer <token>
 ```
 
 **Response:** `204 No Content`
 
 **Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
 - `404 Not Found` - Fragment not found or not owned by user
 
 ---
@@ -152,6 +234,7 @@ Finds semantically similar fragments using vector search.
 
 ```http
 GET /v1/fragments/similar?queryText=career&topK=10
+Authorization: Bearer <token>
 ```
 
 **Query Parameters:**
@@ -189,6 +272,7 @@ Creates a decision projection analyzing how each option fits user patterns.
 
 ```http
 POST /v1/decisions
+Authorization: Bearer <token>
 ```
 
 **Request Body:**
@@ -235,6 +319,7 @@ Retrieves a decision by ID.
 
 ```http
 GET /v1/decisions/{id}
+Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK` (same format as Create Decision response)
@@ -247,6 +332,7 @@ Gets LLM-generated explanation for why the decision projection produced these re
 
 ```http
 GET /v1/decisions/{id}/explanation
+Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
@@ -268,6 +354,7 @@ Lists decisions with pagination.
 
 ```http
 GET /v1/decisions?limit=20&offset=0
+Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
@@ -287,6 +374,7 @@ Submits feedback on a decision to improve future projections.
 
 ```http
 POST /v1/decisions/{id}/feedback
+Authorization: Bearer <token>
 ```
 
 **Request Body:**
@@ -316,6 +404,7 @@ POST /v1/decisions/{id}/feedback
 ```
 
 **Error Responses:**
+- `401 Unauthorized` - Missing or invalid token
 - `404 Not Found` - Decision not found
 - `409 Conflict` - Feedback already submitted for this decision
 
@@ -327,6 +416,7 @@ Gets decisions awaiting feedback (24-72 hours old without feedback).
 
 ```http
 GET /v1/decisions/pending-feedback
+Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
@@ -365,6 +455,7 @@ Gets the user's complete value graph with all nodes and edges.
 
 ```http
 GET /v1/values
+Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
@@ -399,6 +490,7 @@ Gets a specific value axis for the user.
 
 ```http
 GET /v1/values/{axis}
+Authorization: Bearer <token>
 ```
 
 **Path Parameters:**
@@ -421,7 +513,7 @@ GET /v1/values/{axis}
 
 ### Get All Value Axes
 
-Gets definitions for all 8 value axes.
+Gets definitions for all 8 value axes. This endpoint is public and does not require authentication.
 
 ```http
 GET /v1/values/axes
@@ -447,6 +539,7 @@ Gets all edges in the user's value graph.
 
 ```http
 GET /v1/values/edges
+Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
@@ -475,6 +568,7 @@ Gets value conflicts (tensions between values).
 
 ```http
 GET /v1/values/conflicts
+Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
@@ -497,6 +591,7 @@ Gets a summary of the user's value profile.
 
 ```http
 GET /v1/values/summary
+Authorization: Bearer <token>
 ```
 
 **Response:** `200 OK`
@@ -519,6 +614,7 @@ All endpoints may return these error responses:
 | Status | Description |
 |--------|-------------|
 | 400 Bad Request | Invalid input data |
+| 401 Unauthorized | Missing or invalid authentication token |
 | 404 Not Found | Resource not found or not owned by user |
 | 409 Conflict | Resource already exists (e.g., duplicate feedback) |
 | 500 Internal Server Error | Server error |

@@ -4,6 +4,7 @@ import com.aletheia.pros.api.dto.request.CreateFragmentRequest
 import com.aletheia.pros.api.dto.response.FragmentListResponse
 import com.aletheia.pros.api.dto.response.FragmentResponse
 import com.aletheia.pros.api.dto.response.SimilarFragmentResponse
+import com.aletheia.pros.api.security.SecurityUtils
 import com.aletheia.pros.application.port.input.CreateFragmentCommand
 import com.aletheia.pros.application.port.input.ListFragmentsQuery
 import com.aletheia.pros.application.port.input.SimilarFragmentsQuery
@@ -11,7 +12,6 @@ import com.aletheia.pros.application.usecase.fragment.CreateFragmentUseCase
 import com.aletheia.pros.application.usecase.fragment.DeleteFragmentUseCase
 import com.aletheia.pros.application.usecase.fragment.QueryFragmentUseCase
 import com.aletheia.pros.domain.common.FragmentId
-import com.aletheia.pros.domain.common.UserId
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -44,11 +44,11 @@ class FragmentController(
     @PostMapping
     @Operation(summary = "Create a new thought fragment")
     suspend fun createFragment(
-        @RequestHeader("X-User-Id") userId: String,
         @Valid @RequestBody request: CreateFragmentRequest
     ): ResponseEntity<FragmentResponse> {
+        val userId = SecurityUtils.getCurrentUserId()
         val command = CreateFragmentCommand(
-            userId = UserId(UUID.fromString(userId)),
+            userId = userId,
             text = request.text,
             topicHint = request.topicHint
         )
@@ -63,14 +63,13 @@ class FragmentController(
     @GetMapping("/{id}")
     @Operation(summary = "Get a fragment by ID")
     suspend fun getFragment(
-        @RequestHeader("X-User-Id") userId: String,
         @PathVariable id: String
     ): ResponseEntity<FragmentResponse> {
-        val userIdObj = UserId(UUID.fromString(userId))
+        val userId = SecurityUtils.getCurrentUserId()
         val fragmentId = FragmentId(UUID.fromString(id))
         val fragment = queryFragmentUseCase.getById(fragmentId)
             ?: return ResponseEntity.notFound().build()
-        if (fragment.userId != userIdObj) {
+        if (fragment.userId != userId) {
             return ResponseEntity.notFound().build()
         }
 
@@ -83,12 +82,12 @@ class FragmentController(
     @GetMapping
     @Operation(summary = "List fragments with pagination")
     suspend fun listFragments(
-        @RequestHeader("X-User-Id") userId: String,
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") offset: Int
     ): ResponseEntity<FragmentListResponse> {
+        val userId = SecurityUtils.getCurrentUserId()
         val query = ListFragmentsQuery(
-            userId = UserId(UUID.fromString(userId)),
+            userId = userId,
             limit = limit.coerceIn(1, 100),
             offset = offset.coerceAtLeast(0)
         )
@@ -112,14 +111,13 @@ class FragmentController(
     @DeleteMapping("/{id}")
     @Operation(summary = "Soft-delete a fragment")
     suspend fun deleteFragment(
-        @RequestHeader("X-User-Id") userId: String,
         @PathVariable id: String
     ): ResponseEntity<Void> {
-        val userIdObj = UserId(UUID.fromString(userId))
+        val userId = SecurityUtils.getCurrentUserId()
         val fragmentId = FragmentId(UUID.fromString(id))
         val fragment = queryFragmentUseCase.getById(fragmentId)
             ?: return ResponseEntity.notFound().build()
-        if (fragment.userId != userIdObj) {
+        if (fragment.userId != userId) {
             return ResponseEntity.notFound().build()
         }
         val deleted = deleteFragmentUseCase.execute(fragmentId)
@@ -137,12 +135,12 @@ class FragmentController(
     @GetMapping("/similar")
     @Operation(summary = "Find similar fragments")
     suspend fun findSimilarFragments(
-        @RequestHeader("X-User-Id") userId: String,
         @RequestParam queryText: String,
         @RequestParam(defaultValue = "10") topK: Int
     ): ResponseEntity<List<SimilarFragmentResponse>> {
+        val userId = SecurityUtils.getCurrentUserId()
         val query = SimilarFragmentsQuery(
-            userId = UserId(UUID.fromString(userId)),
+            userId = userId,
             queryText = queryText,
             topK = topK.coerceIn(1, 50)
         )

@@ -4,6 +4,8 @@ import com.aletheia.pros.application.port.output.EmbeddingPort
 import com.aletheia.pros.application.port.output.EmotionAnalysisPort
 import com.aletheia.pros.application.port.output.ExplanationPort
 import com.aletheia.pros.application.port.output.ValueExtractionPort
+import com.aletheia.pros.application.usecase.auth.AuthUseCase
+import com.aletheia.pros.application.usecase.auth.PasswordEncoderPort
 import com.aletheia.pros.application.usecase.decision.CreateDecisionUseCase
 import com.aletheia.pros.application.usecase.decision.GetDecisionExplanationUseCase
 import com.aletheia.pros.application.usecase.decision.QueryDecisionUseCase
@@ -15,6 +17,7 @@ import com.aletheia.pros.application.usecase.fragment.QueryFragmentUseCase
 import com.aletheia.pros.application.usecase.value.QueryValueGraphUseCase
 import com.aletheia.pros.domain.decision.DecisionRepository
 import com.aletheia.pros.domain.fragment.FragmentRepository
+import com.aletheia.pros.domain.user.UserRepository
 import com.aletheia.pros.domain.value.ValueGraphRepository
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -120,6 +123,17 @@ class UseCaseConfig {
     ): SubmitFeedbackUseCase {
         return SubmitFeedbackUseCase(
             decisionRepository = decisionRepository
+        )
+    }
+
+    @Bean
+    fun authUseCase(
+        userRepository: UserRepository,
+        passwordEncoderPort: PasswordEncoderPort
+    ): AuthUseCase {
+        return AuthUseCase(
+            userRepository = userRepository,
+            passwordEncoder = passwordEncoderPort
         )
     }
 }
