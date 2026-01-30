@@ -3,6 +3,7 @@ package com.aletheia.pros.infrastructure.config
 import com.aletheia.pros.application.port.output.EmbeddingPort
 import com.aletheia.pros.application.port.output.EmotionAnalysisPort
 import com.aletheia.pros.application.port.output.ExplanationPort
+import com.aletheia.pros.application.port.output.ValueExtractionPort
 import com.aletheia.pros.application.usecase.decision.CreateDecisionUseCase
 import com.aletheia.pros.application.usecase.decision.GetDecisionExplanationUseCase
 import com.aletheia.pros.application.usecase.decision.QueryDecisionUseCase
@@ -30,12 +31,16 @@ class UseCaseConfig {
     fun createFragmentUseCase(
         fragmentRepository: FragmentRepository,
         emotionAnalysisPort: EmotionAnalysisPort,
-        embeddingPort: EmbeddingPort
+        embeddingPort: EmbeddingPort,
+        valueExtractionPort: ValueExtractionPort,
+        valueGraphRepository: ValueGraphRepository
     ): CreateFragmentUseCase {
         return CreateFragmentUseCase(
             fragmentRepository = fragmentRepository,
             emotionAnalysisPort = emotionAnalysisPort,
-            embeddingPort = embeddingPort
+            embeddingPort = embeddingPort,
+            valueExtractionPort = valueExtractionPort,
+            valueGraphRepository = valueGraphRepository
         )
     }
 
