@@ -11,7 +11,6 @@ import com.aletheia.pros.domain.value.ValueAxis
 import com.aletheia.pros.domain.value.ValueGraphRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
-import kotlinx.coroutines.runBlocking
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.util.UUID
@@ -110,12 +109,12 @@ class ValueGraphController(
      */
     @GetMapping("/edges")
     @Operation(summary = "Get all edges in user's value graph")
-    fun getValueEdges(
+    suspend fun getValueEdges(
         @RequestHeader("X-User-Id") userId: String
-    ): ResponseEntity<List<ValueEdgeResponse>> = runBlocking {
+    ): ResponseEntity<List<ValueEdgeResponse>> {
         val userIdObj = UserId(UUID.fromString(userId))
         val edges = queryValueGraphUseCase.getEdges(userIdObj)
-        ResponseEntity.ok(edges.map { ValueEdgeResponse.from(it) })
+        return ResponseEntity.ok(edges.map { ValueEdgeResponse.from(it) })
     }
 
     /**
@@ -126,12 +125,12 @@ class ValueGraphController(
      */
     @GetMapping("/conflicts")
     @Operation(summary = "Get value conflicts (tension between values)")
-    fun getValueConflicts(
+    suspend fun getValueConflicts(
         @RequestHeader("X-User-Id") userId: String
-    ): ResponseEntity<List<ValueConflictResponse>> = runBlocking {
+    ): ResponseEntity<List<ValueConflictResponse>> {
         val userIdObj = UserId(UUID.fromString(userId))
         val conflicts = queryValueGraphUseCase.getConflicts(userIdObj)
-        ResponseEntity.ok(conflicts.map { ValueConflictResponse.from(it) })
+        return ResponseEntity.ok(conflicts.map { ValueConflictResponse.from(it) })
     }
 
     /**
@@ -141,12 +140,12 @@ class ValueGraphController(
      */
     @GetMapping("/summary")
     @Operation(summary = "Get user's value profile summary")
-    fun getValueSummary(
+    suspend fun getValueSummary(
         @RequestHeader("X-User-Id") userId: String
-    ): ResponseEntity<ValueSummaryResponse> = runBlocking {
+    ): ResponseEntity<ValueSummaryResponse> {
         val userIdObj = UserId(UUID.fromString(userId))
         val summary = queryValueGraphUseCase.getSummary(userIdObj)
-        ResponseEntity.ok(ValueSummaryResponse.from(summary))
+        return ResponseEntity.ok(ValueSummaryResponse.from(summary))
     }
 }
 

@@ -5,7 +5,9 @@ import com.aletheia.pros.application.port.output.EmotionAnalysisPort
 import com.aletheia.pros.application.port.output.EmotionAnalysisResult
 import com.aletheia.pros.domain.common.Embedding
 import com.aletheia.pros.domain.common.UserId
+import com.aletheia.pros.domain.fragment.Arousal
 import com.aletheia.pros.domain.fragment.FragmentRepository
+import com.aletheia.pros.domain.fragment.MoodValence
 import com.aletheia.pros.domain.fragment.ThoughtFragment
 import io.mockk.*
 import io.mockk.impl.annotations.MockK
@@ -59,11 +61,12 @@ class CreateFragmentUseCaseTest {
             )
 
             val emotionResult = EmotionAnalysisResult(
-                valence = 0.8,
-                arousal = 0.6
+                valence = MoodValence(0.8),
+                arousal = Arousal(0.6),
+                confidence = 0.9
             )
 
-            coEvery { emotionAnalysisPort.analyze(command.text) } returns emotionResult
+            coEvery { emotionAnalysisPort.analyzeEmotion(command.text) } returns emotionResult
             coEvery { embeddingPort.embed(command.text) } returns testEmbedding
             coEvery { fragmentRepository.save(any()) } answers { firstArg() }
 
@@ -77,7 +80,7 @@ class CreateFragmentUseCaseTest {
             assertThat(result.arousal.value).isEqualTo(0.6)
             assertThat(result.embedding).isEqualTo(testEmbedding)
 
-            coVerify(exactly = 1) { emotionAnalysisPort.analyze(command.text) }
+            coVerify(exactly = 1) { emotionAnalysisPort.analyzeEmotion(command.text) }
             coVerify(exactly = 1) { embeddingPort.embed(command.text) }
             coVerify(exactly = 1) { fragmentRepository.save(any()) }
         }
@@ -88,7 +91,7 @@ class CreateFragmentUseCaseTest {
             val originalText = "  복잡한 감정이 드는 순간...  "
             val command = CreateFragmentCommand(userId = userId, text = originalText)
 
-            coEvery { emotionAnalysisPort.analyze(any()) } returns EmotionAnalysisResult(0.0, 0.5)
+            coEvery { emotionAnalysisPort.analyzeEmotion(any()) } returns EmotionAnalysisResult(MoodValence(0.0), Arousal(0.5), 0.9)
             coEvery { embeddingPort.embed(any()) } returns testEmbedding
             coEvery { fragmentRepository.save(any()) } answers { firstArg() }
 
@@ -109,7 +112,7 @@ class CreateFragmentUseCaseTest {
             // Given
             val command = CreateFragmentCommand(userId = userId, text = "Test text")
 
-            coEvery { emotionAnalysisPort.analyze(any()) } throws RuntimeException("LLM error")
+            coEvery { emotionAnalysisPort.analyzeEmotion(any()) } throws RuntimeException("LLM error")
 
             // When/Then
             assertThatThrownBy {
@@ -125,7 +128,7 @@ class CreateFragmentUseCaseTest {
             // Given
             val command = CreateFragmentCommand(userId = userId, text = "Test text")
 
-            coEvery { emotionAnalysisPort.analyze(any()) } returns EmotionAnalysisResult(0.5, 0.5)
+            coEvery { emotionAnalysisPort.analyzeEmotion(any()) } returns EmotionAnalysisResult(MoodValence(0.5), Arousal(0.5), 0.9)
             coEvery { embeddingPort.embed(any()) } throws RuntimeException("Embedding error")
 
             // When/Then
@@ -141,7 +144,7 @@ class CreateFragmentUseCaseTest {
             // Given
             val command = CreateFragmentCommand(userId = userId, text = "Test text")
 
-            coEvery { emotionAnalysisPort.analyze(any()) } returns EmotionAnalysisResult(0.5, 0.5)
+            coEvery { emotionAnalysisPort.analyzeEmotion(any()) } returns EmotionAnalysisResult(MoodValence(0.5), Arousal(0.5), 0.9)
             coEvery { embeddingPort.embed(any()) } returns testEmbedding
             coEvery { fragmentRepository.save(any()) } throws RuntimeException("DB error")
 
