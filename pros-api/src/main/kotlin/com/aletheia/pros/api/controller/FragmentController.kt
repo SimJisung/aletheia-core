@@ -4,6 +4,7 @@ import com.aletheia.pros.api.dto.request.CreateFragmentRequest
 import com.aletheia.pros.api.dto.response.FragmentListResponse
 import com.aletheia.pros.api.dto.response.FragmentResponse
 import com.aletheia.pros.api.dto.response.SimilarFragmentResponse
+import com.aletheia.pros.api.security.SecurityUtils
 import com.aletheia.pros.application.port.input.CreateFragmentCommand
 import com.aletheia.pros.application.port.input.ListFragmentsQuery
 import com.aletheia.pros.application.port.input.SimilarFragmentsQuery
@@ -11,11 +12,9 @@ import com.aletheia.pros.application.usecase.fragment.CreateFragmentUseCase
 import com.aletheia.pros.application.usecase.fragment.DeleteFragmentUseCase
 import com.aletheia.pros.application.usecase.fragment.QueryFragmentUseCase
 import com.aletheia.pros.domain.common.FragmentId
-import com.aletheia.pros.domain.common.UserId
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
-import kotlinx.coroutines.runBlocking
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -44,18 +43,18 @@ class FragmentController(
      */
     @PostMapping
     @Operation(summary = "Create a new thought fragment")
-    fun createFragment(
-        @RequestHeader("X-User-Id") userId: String,
+    suspend fun createFragment(
         @Valid @RequestBody request: CreateFragmentRequest
-    ): ResponseEntity<FragmentResponse> = runBlocking {
+    ): ResponseEntity<FragmentResponse> {
+        val userId = SecurityUtils.getCurrentUserId()
         val command = CreateFragmentCommand(
-            userId = UserId(UUID.fromString(userId)),
+            userId = userId,
             text = request.text,
             topicHint = request.topicHint
         )
 
         val fragment = createFragmentUseCase.execute(command)
-        ResponseEntity.status(HttpStatus.CREATED).body(FragmentResponse.from(fragment))
+        return ResponseEntity.status(HttpStatus.CREATED).body(FragmentResponse.from(fragment))
     }
 
     /**
@@ -63,19 +62,18 @@ class FragmentController(
      */
     @GetMapping("/{id}")
     @Operation(summary = "Get a fragment by ID")
-    fun getFragment(
-        @RequestHeader("X-User-Id") userId: String,
+    suspend fun getFragment(
         @PathVariable id: String
-    ): ResponseEntity<FragmentResponse> = runBlocking {
-        val userIdObj = UserId(UUID.fromString(userId))
+    ): ResponseEntity<FragmentResponse> {
+        val userId = SecurityUtils.getCurrentUserId()
         val fragmentId = FragmentId(UUID.fromString(id))
         val fragment = queryFragmentUseCase.getById(fragmentId)
-            ?: return@runBlocking ResponseEntity.notFound().build()
-        if (fragment.userId != userIdObj) {
-            return@runBlocking ResponseEntity.notFound().build()
+            ?: return ResponseEntity.notFound().build()
+        if (fragment.userId != userId) {
+            return ResponseEntity.notFound().build()
         }
 
-        ResponseEntity.ok(FragmentResponse.from(fragment))
+        return ResponseEntity.ok(FragmentResponse.from(fragment))
     }
 
     /**
@@ -83,13 +81,13 @@ class FragmentController(
      */
     @GetMapping
     @Operation(summary = "List fragments with pagination")
-    fun listFragments(
-        @RequestHeader("X-User-Id") userId: String,
+    suspend fun listFragments(
         @RequestParam(defaultValue = "20") limit: Int,
         @RequestParam(defaultValue = "0") offset: Int
-    ): ResponseEntity<FragmentListResponse> = runBlocking {
+    ): ResponseEntity<FragmentListResponse> {
+        val userId = SecurityUtils.getCurrentUserId()
         val query = ListFragmentsQuery(
-            userId = UserId(UUID.fromString(userId)),
+            userId = userId,
             limit = limit.coerceIn(1, 100),
             offset = offset.coerceAtLeast(0)
         )
@@ -101,7 +99,7 @@ class FragmentController(
             hasMore = result.hasMore
         )
 
-        ResponseEntity.ok(response)
+        return ResponseEntity.ok(response)
     }
 
     /**
@@ -112,20 +110,19 @@ class FragmentController(
      */
     @DeleteMapping("/{id}")
     @Operation(summary = "Soft-delete a fragment")
-    fun deleteFragment(
-        @RequestHeader("X-User-Id") userId: String,
+    suspend fun deleteFragment(
         @PathVariable id: String
-    ): ResponseEntity<Void> = runBlocking {
-        val userIdObj = UserId(UUID.fromString(userId))
+    ): ResponseEntity<Void> {
+        val userId = SecurityUtils.getCurrentUserId()
         val fragmentId = FragmentId(UUID.fromString(id))
         val fragment = queryFragmentUseCase.getById(fragmentId)
-            ?: return@runBlocking ResponseEntity.notFound().build()
-        if (fragment.userId != userIdObj) {
-            return@runBlocking ResponseEntity.notFound().build()
+            ?: return ResponseEntity.notFound().build()
+        if (fragment.userId != userId) {
+            return ResponseEntity.notFound().build()
         }
         val deleted = deleteFragmentUseCase.execute(fragmentId)
 
-        if (deleted) {
+        return if (deleted) {
             ResponseEntity.noContent().build()
         } else {
             ResponseEntity.notFound().build()
@@ -137,13 +134,13 @@ class FragmentController(
      */
     @GetMapping("/similar")
     @Operation(summary = "Find similar fragments")
-    fun findSimilarFragments(
-        @RequestHeader("X-User-Id") userId: String,
+    suspend fun findSimilarFragments(
         @RequestParam queryText: String,
         @RequestParam(defaultValue = "10") topK: Int
-    ): ResponseEntity<List<SimilarFragmentResponse>> = runBlocking {
+    ): ResponseEntity<List<SimilarFragmentResponse>> {
+        val userId = SecurityUtils.getCurrentUserId()
         val query = SimilarFragmentsQuery(
-            userId = UserId(UUID.fromString(userId)),
+            userId = userId,
             queryText = queryText,
             topK = topK.coerceIn(1, 50)
         )
@@ -156,6 +153,6 @@ class FragmentController(
             )
         }
 
-        ResponseEntity.ok(response)
+        return ResponseEntity.ok(response)
     }
 }

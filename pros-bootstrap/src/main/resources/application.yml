@@ -63,6 +63,10 @@ server:
   servlet:
     context-path: /api
 
+# CORS Configuration
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
 # Actuator Configuration
 management:
   endpoints:

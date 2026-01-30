@@ -37,11 +37,12 @@ pros-core/
 
 | Component | Technology |
 |-----------|------------|
-| Language | Kotlin 2.0 |
-| Framework | Spring Boot 3.4 |
-| AI Integration | Spring AI 1.0 |
+| Language | Kotlin 2.3.0 |
+| Framework | Spring Boot 3.5.8 |
+| AI Integration | Spring AI 1.1.2 |
 | Database | PostgreSQL 17 + pgvector |
 | Build | Gradle (Kotlin DSL) |
+| JDK | Java 21 |
 
 ## Getting Started
 

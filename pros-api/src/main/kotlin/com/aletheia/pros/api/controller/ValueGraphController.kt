@@ -5,16 +5,14 @@ import com.aletheia.pros.api.dto.response.ValueEdgeResponse
 import com.aletheia.pros.api.dto.response.ValueGraphResponse
 import com.aletheia.pros.api.dto.response.ValueNodeResponse
 import com.aletheia.pros.api.dto.response.ValueSummaryResponse
+import com.aletheia.pros.api.security.SecurityUtils
 import com.aletheia.pros.application.usecase.value.QueryValueGraphUseCase
-import com.aletheia.pros.domain.common.UserId
 import com.aletheia.pros.domain.value.ValueAxis
 import com.aletheia.pros.domain.value.ValueGraphRepository
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
-import kotlinx.coroutines.runBlocking
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import java.util.UUID
 
 /**
  * REST Controller for Value Graph operations.
@@ -42,16 +40,14 @@ class ValueGraphController(
      */
     @GetMapping
     @Operation(summary = "Get user's value graph")
-    fun getValueGraph(
-        @RequestHeader("X-User-Id") userId: String
-    ): ResponseEntity<ValueGraphResponse> {
-        val userIdObj = UserId(UUID.fromString(userId))
+    fun getValueGraph(): ResponseEntity<ValueGraphResponse> {
+        val userId = SecurityUtils.getCurrentUserId()
 
-        var graph = valueGraphRepository.findValueGraph(userIdObj)
+        var graph = valueGraphRepository.findValueGraph(userId)
         if (graph == null) {
             // Ensure value graph nodes exist (idempotent under concurrency)
-            valueGraphRepository.initializeNodesForUser(userIdObj)
-            graph = valueGraphRepository.findValueGraph(userIdObj)
+            valueGraphRepository.initializeNodesForUser(userId)
+            graph = valueGraphRepository.findValueGraph(userId)
         }
 
         if (graph == null) {
@@ -67,10 +63,9 @@ class ValueGraphController(
     @GetMapping("/{axis}")
     @Operation(summary = "Get a specific value axis")
     fun getValueAxis(
-        @RequestHeader("X-User-Id") userId: String,
         @PathVariable axis: String
     ): ResponseEntity<ValueNodeResponse> {
-        val userIdObj = UserId(UUID.fromString(userId))
+        val userId = SecurityUtils.getCurrentUserId()
 
         val valueAxis = try {
             ValueAxis.valueOf(axis.uppercase())
@@ -78,7 +73,7 @@ class ValueGraphController(
             return ResponseEntity.badRequest().build()
         }
 
-        val node = valueGraphRepository.findNodeByUserAndAxis(userIdObj, valueAxis)
+        val node = valueGraphRepository.findNodeByUserAndAxis(userId, valueAxis)
             ?: return ResponseEntity.notFound().build()
 
         return ResponseEntity.ok(ValueNodeResponse.from(node))
@@ -110,12 +105,10 @@ class ValueGraphController(
      */
     @GetMapping("/edges")
     @Operation(summary = "Get all edges in user's value graph")
-    fun getValueEdges(
-        @RequestHeader("X-User-Id") userId: String
-    ): ResponseEntity<List<ValueEdgeResponse>> = runBlocking {
-        val userIdObj = UserId(UUID.fromString(userId))
-        val edges = queryValueGraphUseCase.getEdges(userIdObj)
-        ResponseEntity.ok(edges.map { ValueEdgeResponse.from(it) })
+    suspend fun getValueEdges(): ResponseEntity<List<ValueEdgeResponse>> {
+        val userId = SecurityUtils.getCurrentUserId()
+        val edges = queryValueGraphUseCase.getEdges(userId)
+        return ResponseEntity.ok(edges.map { ValueEdgeResponse.from(it) })
     }
 
     /**
@@ -126,12 +119,10 @@ class ValueGraphController(
      */
     @GetMapping("/conflicts")
     @Operation(summary = "Get value conflicts (tension between values)")
-    fun getValueConflicts(
-        @RequestHeader("X-User-Id") userId: String
-    ): ResponseEntity<List<ValueConflictResponse>> = runBlocking {
-        val userIdObj = UserId(UUID.fromString(userId))
-        val conflicts = queryValueGraphUseCase.getConflicts(userIdObj)
-        ResponseEntity.ok(conflicts.map { ValueConflictResponse.from(it) })
+    suspend fun getValueConflicts(): ResponseEntity<List<ValueConflictResponse>> {
+        val userId = SecurityUtils.getCurrentUserId()
+        val conflicts = queryValueGraphUseCase.getConflicts(userId)
+        return ResponseEntity.ok(conflicts.map { ValueConflictResponse.from(it) })
     }
 
     /**
@@ -141,12 +132,10 @@ class ValueGraphController(
      */
     @GetMapping("/summary")
     @Operation(summary = "Get user's value profile summary")
-    fun getValueSummary(
-        @RequestHeader("X-User-Id") userId: String
-    ): ResponseEntity<ValueSummaryResponse> = runBlocking {
-        val userIdObj = UserId(UUID.fromString(userId))
-        val summary = queryValueGraphUseCase.getSummary(userIdObj)
-        ResponseEntity.ok(ValueSummaryResponse.from(summary))
+    suspend fun getValueSummary(): ResponseEntity<ValueSummaryResponse> {
+        val userId = SecurityUtils.getCurrentUserId()
+        val summary = queryValueGraphUseCase.getSummary(userId)
+        return ResponseEntity.ok(ValueSummaryResponse.from(summary))
     }
 }
 
