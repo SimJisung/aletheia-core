@@ -13,6 +13,13 @@
 plugins {
     kotlin("jvm")
     kotlin("plugin.spring")
+    id("io.spring.dependency-management")
+}
+
+dependencyManagement {
+    imports {
+        mavenBom(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES)
+    }
 }
 
 dependencies {

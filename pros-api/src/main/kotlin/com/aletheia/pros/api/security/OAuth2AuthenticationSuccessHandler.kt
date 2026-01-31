@@ -11,6 +11,8 @@ import jakarta.servlet.http.HttpServletResponse
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.core.Authentication
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository
 import org.springframework.security.oauth2.core.user.OAuth2User
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler
 import org.springframework.stereotype.Component
@@ -26,8 +28,11 @@ private val logger = KotlinLogging.logger {}
  * 2. Creates or links user account via OAuthUseCase
  * 3. Generates JWT token
  * 4. Redirects to frontend with token
+ *
+ * NOTE: Only active when OAuth2 client is configured
  */
 @Component
+@ConditionalOnBean(ClientRegistrationRepository::class)
 class OAuth2AuthenticationSuccessHandler(
     private val oauthUseCase: OAuthUseCase,
     private val jwtTokenProvider: JwtTokenProvider,

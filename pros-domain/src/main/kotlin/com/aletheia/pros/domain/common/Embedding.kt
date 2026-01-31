@@ -10,8 +10,7 @@ package com.aletheia.pros.domain.common
  *
  * @property values The embedding vector (typically 1536 dimensions for OpenAI)
  */
-@JvmInline
-value class Embedding(val values: FloatArray) {
+data class Embedding(val values: FloatArray) {
 
     init {
         require(values.isNotEmpty()) { "Embedding cannot be empty" }

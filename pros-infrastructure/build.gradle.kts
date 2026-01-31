@@ -14,7 +14,10 @@ plugins {
     kotlin("jvm")
     kotlin("plugin.spring")
     kotlin("plugin.jpa")
+    id("io.spring.dependency-management")
 }
+
+val springAiVersion: String by project
 
 dependencies {
     implementation(project(":pros-domain"))
@@ -24,17 +27,17 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
-    // Spring AI - Core
-    implementation("org.springframework.ai:spring-ai-core")
+    // Spring AI - BOM
+    implementation(platform("org.springframework.ai:spring-ai-bom:$springAiVersion"))
 
     // Spring AI - OpenAI (for embeddings and LLM)
-    implementation("org.springframework.ai:spring-ai-openai-spring-boot-starter")
+    implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
     // Spring AI - PGVector Store
-    implementation("org.springframework.ai:spring-ai-pgvector-store-spring-boot-starter")
+    implementation("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
 
     // Spring AI - MCP (Model Context Protocol)
-    implementation("org.springframework.ai:spring-ai-mcp")
+    // implementation("org.springframework.ai:spring-ai-mcp")
 
     // PostgreSQL
     runtimeOnly("org.postgresql:postgresql")

@@ -24,6 +24,12 @@ subprojects {
     apply(plugin = "org.jetbrains.kotlin.jvm")
     apply(plugin = "io.spring.dependency-management")
 
+    repositories {
+        mavenCentral()
+        maven { url = uri("https://repo.spring.io/milestone") }
+        maven { url = uri("https://repo.spring.io/snapshot") }
+    }
+
     java {
         toolchain {
             languageVersion.set(JavaLanguageVersion.of(javaVersion.toInt()))
@@ -39,6 +45,7 @@ subprojects {
 
     dependencyManagement {
         imports {
+            mavenBom(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES)
             mavenBom("org.springframework.ai:spring-ai-bom:$springAiVersion")
         }
     }

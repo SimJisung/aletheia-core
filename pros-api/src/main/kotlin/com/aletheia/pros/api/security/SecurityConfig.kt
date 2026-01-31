@@ -1,5 +1,6 @@
 package com.aletheia.pros.api.security
 
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -16,15 +17,19 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *
  * Configures:
  * - JWT-based stateless authentication for API endpoints
- * - OAuth2 social login (Google, GitHub)
+ * - OAuth2 social login (Google, GitHub) - optional if configured
  */
 @Configuration
 @EnableWebSecurity
 class SecurityConfig(
-    private val jwtAuthenticationFilter: JwtAuthenticationFilter,
-    private val oAuth2AuthenticationSuccessHandler: OAuth2AuthenticationSuccessHandler,
-    private val oAuth2AuthenticationFailureHandler: OAuth2AuthenticationFailureHandler
+    private val jwtAuthenticationFilter: JwtAuthenticationFilter
 ) {
+
+    @Autowired(required = false)
+    private var oAuth2AuthenticationSuccessHandler: OAuth2AuthenticationSuccessHandler? = null
+
+    @Autowired(required = false)
+    private var oAuth2AuthenticationFailureHandler: OAuth2AuthenticationFailureHandler? = null
 
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
@@ -43,15 +48,19 @@ class SecurityConfig(
                     // All other endpoints require authentication
                     .anyRequest().authenticated()
             }
-            // OAuth2 Login configuration
-            .oauth2Login { oauth2 ->
+
+        // OAuth2 Login configuration (optional)
+        if (oAuth2AuthenticationSuccessHandler != null && oAuth2AuthenticationFailureHandler != null) {
+            http.oauth2Login { oauth2 ->
                 oauth2
                     .authorizationEndpoint { it.baseUri("/oauth2/authorize") }
                     .redirectionEndpoint { it.baseUri("/oauth2/callback/*") }
-                    .successHandler(oAuth2AuthenticationSuccessHandler)
-                    .failureHandler(oAuth2AuthenticationFailureHandler)
+                    .successHandler(oAuth2AuthenticationSuccessHandler!!)
+                    .failureHandler(oAuth2AuthenticationFailureHandler!!)
             }
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
+        }
+
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()
     }
