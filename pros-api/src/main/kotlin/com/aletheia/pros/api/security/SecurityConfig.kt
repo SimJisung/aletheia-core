@@ -14,12 +14,16 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * Security configuration for the API.
  *
- * Configures JWT-based stateless authentication.
+ * Configures:
+ * - JWT-based stateless authentication for API endpoints
+ * - OAuth2 social login (Google, GitHub)
  */
 @Configuration
 @EnableWebSecurity
 class SecurityConfig(
-    private val jwtAuthenticationFilter: JwtAuthenticationFilter
+    private val jwtAuthenticationFilter: JwtAuthenticationFilter,
+    private val oAuth2AuthenticationSuccessHandler: OAuth2AuthenticationSuccessHandler,
+    private val oAuth2AuthenticationFailureHandler: OAuth2AuthenticationFailureHandler
 ) {
 
     @Bean
@@ -31,12 +35,21 @@ class SecurityConfig(
                 auth
                     // Public endpoints
                     .requestMatchers("/v1/auth/**").permitAll()
+                    .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                     .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                     // All other endpoints require authentication
                     .anyRequest().authenticated()
+            }
+            // OAuth2 Login configuration
+            .oauth2Login { oauth2 ->
+                oauth2
+                    .authorizationEndpoint { it.baseUri("/oauth2/authorize") }
+                    .redirectionEndpoint { it.baseUri("/oauth2/callback/*") }
+                    .successHandler(oAuth2AuthenticationSuccessHandler)
+                    .failureHandler(oAuth2AuthenticationFailureHandler)
             }
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
 

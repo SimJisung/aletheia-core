@@ -87,6 +87,10 @@ class AuthController(
             is LoginResult.AccountDeactivated -> {
                 ResponseEntity.status(HttpStatus.FORBIDDEN).build()
             }
+            is LoginResult.OAuthOnlyAccount -> {
+                // User registered via OAuth and has no password
+                ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
+            }
         }
     }
 }
