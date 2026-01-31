@@ -4,6 +4,19 @@
 
 과거의 생각 파편을 근거로, 현재의 결정이 '나다운지'와 '후회 위험'을 확률로 제시하는 개인 반추 OS의 MVP 구현
 
+**Current Version**: `0.1.0-SNAPSHOT`
+
+## Key Features
+
+- ✅ **JWT Authentication**: Secure user registration and login
+- ✅ **Thought Fragment Management**: Append-only memory with semantic search
+- ✅ **Value Graph Auto-Update**: Automatically updated based on user fragments
+- ✅ **Decision Projection**: Calculate decision fit and regret probability
+- ✅ **LLM-Powered Explanations**: Natural language explanations for decisions
+- ✅ **Feedback Loop**: User feedback improves decision accuracy over time
+- ✅ **Vector Similarity Search**: Find related thoughts using pgvector
+- ✅ **OpenAPI Documentation**: Interactive API explorer
+
 ## Core Principles
 
 ### ❌ 하지 않을 것
@@ -41,6 +54,8 @@ pros-core/
 | Framework | Spring Boot 3.5.8 |
 | AI Integration | Spring AI 1.1.2 |
 | Database | PostgreSQL 17 + pgvector |
+| Authentication | JWT (JSON Web Tokens) |
+| API Documentation | SpringDoc OpenAPI 3 |
 | Build | Gradle (Kotlin DSL) |
 | JDK | Java 21 |
 
@@ -78,12 +93,44 @@ cp .env.example .env
 
 ### API Endpoints
 
+#### Authentication
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/v1/auth/register` | Register a new user account |
+| `POST /api/v1/auth/login` | Login and get JWT token |
+
+#### Thought Fragments
 | Endpoint | Description |
 |----------|-------------|
 | `POST /api/v1/fragments` | Create a thought fragment |
-| `GET /api/v1/fragments` | List fragments |
+| `GET /api/v1/fragments` | List fragments (paginated) |
+| `GET /api/v1/fragments/{id}` | Get fragment by ID |
+| `DELETE /api/v1/fragments/{id}` | Soft-delete fragment |
+| `GET /api/v1/fragments/similar` | Find similar fragments (semantic search) |
+
+#### Decisions
+| Endpoint | Description |
+|----------|-------------|
 | `POST /api/v1/decisions` | Create decision projection |
-| `GET /api/v1/values` | Get value graph |
+| `GET /api/v1/decisions` | List decisions |
+| `GET /api/v1/decisions/{id}` | Get decision by ID |
+| `GET /api/v1/decisions/{id}/explanation` | Get decision explanation |
+| `POST /api/v1/decisions/{id}/feedback` | Submit decision feedback |
+| `GET /api/v1/decisions/pending-feedback` | Get decisions pending feedback |
+
+#### Value Graph
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/values` | Get user's value graph |
+| `GET /api/v1/values/{axis}` | Get specific value axis details |
+| `GET /api/v1/values/axes` | Get all value axes |
+| `GET /api/v1/values/edges` | Get value relationships |
+| `GET /api/v1/values/conflicts` | Get value conflicts |
+| `GET /api/v1/values/summary` | Get value graph summary |
+
+**Authentication**: All endpoints except `/auth/register` and `/auth/login` require JWT authentication via `Authorization: Bearer <token>` header.
+
+**API Documentation**: Interactive API documentation is available at `http://localhost:8080/api/swagger-ui.html` when running locally.
 
 ## Core Concepts
 
