@@ -45,6 +45,11 @@ class SecurityConfig(
                     .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                    // TODO: Remove in production - temporary for development
+                    .requestMatchers("/v1/fragments/**").permitAll()
+                    .requestMatchers("/v1/decisions/**").permitAll()
+                    .requestMatchers("/v1/values/**").permitAll()
+
                     // All other endpoints require authentication
                     .anyRequest().authenticated()
             }
