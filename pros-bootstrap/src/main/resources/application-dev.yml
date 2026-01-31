@@ -1,0 +1,36 @@
+# Development Environment Profile (Supabase)
+# ==========================================
+# Uses Supabase PostgreSQL via Transaction Pooler
+# Run with: SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
+
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  # Database Configuration (Supabase)
+  # Uses Transaction Pooler (PgBouncer) on port 6543
+  datasource:
+    url: jdbc:postgresql://${SUPABASE_PROJECT_ID}.pooler.supabase.com:6543/postgres
+    username: postgres.${SUPABASE_PROJECT_ID}
+    password: ${SUPABASE_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # Reduced pool size for Supabase connection limits
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 30000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+
+  # Show SQL for debugging
+  jpa:
+    show-sql: true
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.aletheia.pros: DEBUG
+    org.springframework.ai: INFO
+    org.hibernate.SQL: WARN

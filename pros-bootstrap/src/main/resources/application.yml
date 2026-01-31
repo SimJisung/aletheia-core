@@ -1,24 +1,12 @@
 # PROS (Personal Reasoning OS) Configuration
 # ==========================================
+# Common settings for all environments
 
 spring:
   application:
     name: pros
 
-  # Database Configuration
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:pros}
-    username: ${DB_USER:pros}
-    password: ${DB_PASSWORD:pros_dev}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      idle-timeout: 30000
-      connection-timeout: 20000
-      max-lifetime: 1800000
-
-  # JPA Configuration
+  # JPA Configuration (common)
   jpa:
     hibernate:
       ddl-auto: validate  # Use Flyway for migrations
@@ -118,14 +106,6 @@ management:
     health:
       show-details: when_authorized
 
-# Logging Configuration
-logging:
-  level:
-    root: INFO
-    com.aletheia.pros: DEBUG
-    org.springframework.ai: INFO
-    org.hibernate.SQL: WARN
-
 # Application-specific Configuration
 pros:
   # Decision Engine Settings
@@ -161,30 +141,3 @@ pros:
 
       Your role is to TRANSLATE calculations into human-readable explanations.
       You do NOT make decisions. The user makes decisions.
-
----
-# Development Profile
-spring:
-  config:
-    activate:
-      on-profile: dev
-
-  jpa:
-    show-sql: true
-
-logging:
-  level:
-    com.aletheia.pros: DEBUG
-    org.springframework.ai: DEBUG
-
----
-# Production Profile
-spring:
-  config:
-    activate:
-      on-profile: prod
-
-logging:
-  level:
-    root: WARN
-    com.aletheia.pros: INFO
