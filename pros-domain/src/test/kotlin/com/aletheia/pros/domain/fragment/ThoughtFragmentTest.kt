@@ -25,9 +25,8 @@ class ThoughtFragmentTest {
             val fragment = ThoughtFragment.create(
                 userId = userId,
                 textRaw = "오늘 정말 행복한 하루였다",
-                moodValence = 0.8,
-                arousal = 0.6,
-                embedding = embedding
+                moodValence = MoodValence(0.8),
+                arousal = Arousal(0.6)
             )
 
             assertThat(fragment.id).isNotNull
@@ -62,9 +61,8 @@ class ThoughtFragmentTest {
                 ThoughtFragment.create(
                     userId = userId,
                     textRaw = "",
-                    moodValence = 0.5,
-                    arousal = 0.5,
-                    embedding = embedding
+                    moodValence = MoodValence(0.5),
+                    arousal = Arousal(0.5)
                 )
             }.isInstanceOf(IllegalArgumentException::class.java)
                 .hasMessageContaining("text")
@@ -76,9 +74,8 @@ class ThoughtFragmentTest {
                 ThoughtFragment.create(
                     userId = userId,
                     textRaw = "   ",
-                    moodValence = 0.5,
-                    arousal = 0.5,
-                    embedding = embedding
+                    moodValence = MoodValence(0.5),
+                    arousal = Arousal(0.5)
                 )
             }.isInstanceOf(IllegalArgumentException::class.java)
         }
@@ -90,33 +87,33 @@ class ThoughtFragmentTest {
 
         @Test
         fun `should accept valence at lower bound -1`() {
-            val fragment = createFragment(moodValence = -1.0)
+            val fragment = createFragment(moodValence = MoodValence(-1.0))
             assertThat(fragment.moodValence.value).isEqualTo(-1.0)
         }
 
         @Test
         fun `should accept valence at upper bound 1`() {
-            val fragment = createFragment(moodValence = 1.0)
+            val fragment = createFragment(moodValence = MoodValence(1.0))
             assertThat(fragment.moodValence.value).isEqualTo(1.0)
         }
 
         @Test
         fun `should accept neutral valence 0`() {
-            val fragment = createFragment(moodValence = 0.0)
+            val fragment = createFragment(moodValence = MoodValence(0.0))
             assertThat(fragment.moodValence.value).isEqualTo(0.0)
             assertThat(fragment.moodValence.isNeutral).isTrue()
         }
 
         @Test
         fun `should identify positive valence`() {
-            val fragment = createFragment(moodValence = 0.5)
+            val fragment = createFragment(moodValence = MoodValence(0.5))
             assertThat(fragment.moodValence.isPositive).isTrue()
             assertThat(fragment.moodValence.isNegative).isFalse()
         }
 
         @Test
         fun `should identify negative valence`() {
-            val fragment = createFragment(moodValence = -0.5)
+            val fragment = createFragment(moodValence = MoodValence(-0.5))
             assertThat(fragment.moodValence.isNegative).isTrue()
             assertThat(fragment.moodValence.isPositive).isFalse()
         }
@@ -124,14 +121,14 @@ class ThoughtFragmentTest {
         @Test
         fun `should reject valence below -1`() {
             assertThatThrownBy {
-                createFragment(moodValence = -1.1)
+                MoodValence(-1.1)
             }.isInstanceOf(IllegalArgumentException::class.java)
         }
 
         @Test
         fun `should reject valence above 1`() {
             assertThatThrownBy {
-                createFragment(moodValence = 1.1)
+                MoodValence(1.1)
             }.isInstanceOf(IllegalArgumentException::class.java)
         }
     }
@@ -142,26 +139,26 @@ class ThoughtFragmentTest {
 
         @Test
         fun `should accept arousal at lower bound 0`() {
-            val fragment = createFragment(arousal = 0.0)
+            val fragment = createFragment(arousal = Arousal(0.0))
             assertThat(fragment.arousal.value).isEqualTo(0.0)
         }
 
         @Test
         fun `should accept arousal at upper bound 1`() {
-            val fragment = createFragment(arousal = 1.0)
+            val fragment = createFragment(arousal = Arousal(1.0))
             assertThat(fragment.arousal.value).isEqualTo(1.0)
         }
 
         @Test
         fun `should identify high arousal`() {
-            val fragment = createFragment(arousal = 0.8)
+            val fragment = createFragment(arousal = Arousal(0.8))
             assertThat(fragment.arousal.isHigh).isTrue()
             assertThat(fragment.arousal.isLow).isFalse()
         }
 
         @Test
         fun `should identify low arousal`() {
-            val fragment = createFragment(arousal = 0.2)
+            val fragment = createFragment(arousal = Arousal(0.2))
             assertThat(fragment.arousal.isLow).isTrue()
             assertThat(fragment.arousal.isHigh).isFalse()
         }
@@ -169,14 +166,14 @@ class ThoughtFragmentTest {
         @Test
         fun `should reject negative arousal`() {
             assertThatThrownBy {
-                createFragment(arousal = -0.1)
+                Arousal(-0.1)
             }.isInstanceOf(IllegalArgumentException::class.java)
         }
 
         @Test
         fun `should reject arousal above 1`() {
             assertThatThrownBy {
-                createFragment(arousal = 1.1)
+                Arousal(1.1)
             }.isInstanceOf(IllegalArgumentException::class.java)
         }
     }
@@ -206,13 +203,14 @@ class ThoughtFragmentTest {
         }
 
         @Test
-        fun `should be idempotent - second delete has no effect`() {
+        fun `should reject second delete attempt`() {
             val fragment = createFragment()
+            val deleted = fragment.softDelete()
 
-            val deleted1 = fragment.softDelete()
-            val deleted2 = deleted1.softDelete()
-
-            assertThat(deleted1.deletedAt).isEqualTo(deleted2.deletedAt)
+            assertThatThrownBy {
+                deleted.softDelete()
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("already deleted")
         }
     }
 
@@ -221,14 +219,24 @@ class ThoughtFragmentTest {
     inner class EmbeddingTests {
 
         @Test
-        fun `should store embedding vector`() {
-            val vector = FloatArray(1536) { it.toFloat() / 1536 }
-            val emb = Embedding(vector)
+        fun `should add embedding to fragment`() {
+            val fragment = createFragment()
 
-            val fragment = createFragment(embedding = emb)
+            val withEmb = fragment.withEmbedding(embedding)
 
-            assertThat(fragment.embedding.dimension).isEqualTo(1536)
-            assertThat(fragment.embedding.vector).isEqualTo(vector)
+            assertThat(withEmb.hasEmbedding).isTrue()
+            assertThat(withEmb.embedding?.dimension).isEqualTo(1536)
+        }
+
+        @Test
+        fun `should reject adding embedding twice`() {
+            val fragment = createFragment()
+            val withEmb = fragment.withEmbedding(embedding)
+
+            assertThatThrownBy {
+                withEmb.withEmbedding(embedding)
+            }.isInstanceOf(IllegalArgumentException::class.java)
+                .hasMessageContaining("already has an embedding")
         }
 
         @Test
@@ -245,16 +253,14 @@ class ThoughtFragmentTest {
     // Helper method
     private fun createFragment(
         text: String = "Test thought",
-        moodValence: Double = 0.5,
-        arousal: Double = 0.5,
-        embedding: Embedding = this@ThoughtFragmentTest.embedding
+        moodValence: MoodValence = MoodValence(0.5),
+        arousal: Arousal = Arousal(0.5)
     ): ThoughtFragment {
         return ThoughtFragment.create(
             userId = userId,
             textRaw = text,
             moodValence = moodValence,
-            arousal = arousal,
-            embedding = embedding
+            arousal = arousal
         )
     }
 }

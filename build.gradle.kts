@@ -60,9 +60,10 @@ subprojects {
 
         // Testing
         testImplementation(kotlin("test"))
-        testImplementation("org.junit.jupiter:junit-jupiter:5.14.2")
-        testImplementation("io.mockk:mockk:1.14.7")
-        testImplementation("org.assertj:assertj-core:3.27.6")
+        testImplementation("org.junit.jupiter:junit-jupiter")
+        testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+        testImplementation("io.mockk:mockk:1.14.0")
+        testImplementation("org.assertj:assertj-core:3.26.3")
     }
 
     tasks.withType<Test> {

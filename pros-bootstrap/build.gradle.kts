@@ -39,3 +39,21 @@ tasks.bootJar {
     archiveBaseName.set("pros")
     archiveVersion.set(project.version.toString())
 }
+
+tasks.bootRun {
+    // Set working directory to project root for .env file loading
+    workingDir = rootProject.projectDir
+
+    // Load .env file and set environment variables
+    doFirst {
+        val envFile = rootProject.file(".env")
+        if (envFile.exists()) {
+            envFile.readLines()
+                .filter { it.isNotBlank() && !it.startsWith("#") && it.contains("=") }
+                .forEach { line ->
+                    val (key, value) = line.split("=", limit = 2)
+                    environment(key.trim(), value.trim())
+                }
+        }
+    }
+}
