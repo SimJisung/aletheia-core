@@ -47,7 +47,12 @@ class AuthUseCase(
             return LoginResult.AccountDeactivated
         }
 
-        if (!passwordEncoder.matches(command.password, user.passwordHash)) {
+        // Check if user has a password (OAuth-only users don't)
+        if (!user.hasPassword) {
+            return LoginResult.OAuthOnlyAccount
+        }
+
+        if (!passwordEncoder.matches(command.password, user.passwordHash!!)) {
             return LoginResult.InvalidCredentials
         }
 
@@ -97,6 +102,7 @@ sealed class LoginResult {
     data class Success(val user: User) : LoginResult()
     data object InvalidCredentials : LoginResult()
     data object AccountDeactivated : LoginResult()
+    data object OAuthOnlyAccount : LoginResult()
 }
 
 /**

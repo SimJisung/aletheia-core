@@ -5,7 +5,9 @@ import com.aletheia.pros.application.port.output.EmotionAnalysisPort
 import com.aletheia.pros.application.port.output.ExplanationPort
 import com.aletheia.pros.application.port.output.ValueExtractionPort
 import com.aletheia.pros.application.usecase.auth.AuthUseCase
+import com.aletheia.pros.application.usecase.auth.OAuthUseCase
 import com.aletheia.pros.application.usecase.auth.PasswordEncoderPort
+import com.aletheia.pros.domain.user.OAuthAccountRepository
 import com.aletheia.pros.application.usecase.decision.CreateDecisionUseCase
 import com.aletheia.pros.application.usecase.decision.GetDecisionExplanationUseCase
 import com.aletheia.pros.application.usecase.decision.QueryDecisionUseCase
@@ -134,6 +136,17 @@ class UseCaseConfig {
         return AuthUseCase(
             userRepository = userRepository,
             passwordEncoder = passwordEncoderPort
+        )
+    }
+
+    @Bean
+    fun oauthUseCase(
+        userRepository: UserRepository,
+        oauthAccountRepository: OAuthAccountRepository
+    ): OAuthUseCase {
+        return OAuthUseCase(
+            userRepository = userRepository,
+            oauthAccountRepository = oauthAccountRepository
         )
     }
 }

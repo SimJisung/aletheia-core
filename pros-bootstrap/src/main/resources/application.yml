@@ -37,6 +37,37 @@ spring:
     baseline-on-migrate: true
     validate-on-migrate: true
 
+  # OAuth2 Client Configuration (Google, GitHub)
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope:
+              - email
+              - profile
+            redirect-uri: "{baseUrl}/api/oauth2/callback/google"
+          github:
+            client-id: ${GITHUB_CLIENT_ID:}
+            client-secret: ${GITHUB_CLIENT_SECRET:}
+            scope:
+              - user:email
+              - read:user
+            redirect-uri: "{baseUrl}/api/oauth2/callback/github"
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: sub
+          github:
+            authorization-uri: https://github.com/login/oauth/authorize
+            token-uri: https://github.com/login/oauth/access_token
+            user-info-uri: https://api.github.com/user
+            user-name-attribute: id
+
   # Spring AI Configuration
   ai:
     openai:
@@ -66,6 +97,15 @@ server:
 # CORS Configuration
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
+# OAuth2 Redirect Configuration
+oauth2:
+  success-redirect-uri: ${OAUTH2_SUCCESS_REDIRECT_URI:http://localhost:3000/oauth/callback}
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:default-secret-key-that-should-be-changed-in-production-environment-32chars}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}
 
 # Actuator Configuration
 management:

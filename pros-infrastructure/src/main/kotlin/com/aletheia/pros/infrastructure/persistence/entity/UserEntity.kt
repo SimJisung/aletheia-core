@@ -17,11 +17,14 @@ class UserEntity(
     @Column(name = "email", nullable = false, unique = true)
     val email: String,
 
-    @Column(name = "password_hash", nullable = false)
-    val passwordHash: String,
+    @Column(name = "password_hash")
+    val passwordHash: String?,
 
     @Column(name = "name", nullable = false)
     val name: String,
+
+    @Column(name = "avatar_url")
+    val avatarUrl: String? = null,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant,

@@ -17,6 +17,7 @@ class UserMapper {
             email = domain.email,
             passwordHash = domain.passwordHash,
             name = domain.name,
+            avatarUrl = domain.avatarUrl,
             createdAt = domain.createdAt,
             lastLoginAt = domain.lastLoginAt,
             isActive = domain.isActive
@@ -29,6 +30,7 @@ class UserMapper {
             email = entity.email,
             passwordHash = entity.passwordHash,
             name = entity.name,
+            avatarUrl = entity.avatarUrl,
             createdAt = entity.createdAt,
             lastLoginAt = entity.lastLoginAt,
             isActive = entity.isActive
