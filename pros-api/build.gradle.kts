@@ -48,6 +48,9 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
 
+    // Kotlin Coroutines Reactor (for suspend function support in Spring Web)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")

@@ -24,6 +24,8 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     validate-on-migrate: true
+    placeholders:
+      embedding_dimensions: ${spring.ai.vectorstore.pgvector.dimensions:1536}
 
   # OAuth2 Client Configuration (Google, GitHub)
   # NOTE: OAuth2 is optional. Only configured if credentials are provided.
@@ -58,7 +60,11 @@ spring:
   #           user-name-attribute: id
 
   # Spring AI Configuration
+  # Model selection (chat/embedding) is configured per profile
+  # - local: Ollama (gpt-oss:20b + bge-m3)
+  # - dev/prod: OpenAI (gpt-4o-mini + text-embedding-3-small)
   ai:
+    # OpenAI configuration (used in dev/prod profiles)
     openai:
       api-key: ${OPENAI_API_KEY:}
       embedding:
@@ -70,11 +76,14 @@ spring:
           temperature: 0.3  # Low temperature for consistent explanations
 
     # PGVector Store Configuration
+    # Dimensions are set per profile:
+    # - local: 1024 (bge-m3)
+    # - dev/prod: 1536 (text-embedding-3-small)
     vectorstore:
       pgvector:
         index-type: HNSW
         distance-type: COSINE_DISTANCE
-        dimensions: 1536
+        dimensions: 1536  # Default for OpenAI, overridden in local profile
         initialize-schema: false  # Flyway handles this
 
 # Server Configuration
@@ -126,6 +135,8 @@ pros:
 
   # LLM Explanation Settings
   explanation:
+    # Timeout for LLM API calls (in seconds)
+    timeout-seconds: 180
     # System prompt for explanation generation
     # CRITICAL: This enforces the "no recommendation" rule
     system-prompt: |

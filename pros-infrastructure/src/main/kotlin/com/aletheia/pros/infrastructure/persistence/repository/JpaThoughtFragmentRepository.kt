@@ -73,11 +73,12 @@ interface JpaThoughtFragmentRepository : JpaRepository<ThoughtFragmentEntity, UU
 
     /**
      * Updates the embedding for a fragment.
+     * Uses CAST() instead of :: operator to avoid conflict with Spring Data JPA named parameter syntax.
      */
     @Modifying
     @Query(value = """
         UPDATE thought_fragments
-        SET embedding = :embedding::vector
+        SET embedding = CAST(:embedding AS vector)
         WHERE id = :id AND embedding IS NULL
     """, nativeQuery = true)
     fun updateEmbedding(
@@ -90,15 +91,16 @@ interface JpaThoughtFragmentRepository : JpaRepository<ThoughtFragmentEntity, UU
      * Returns fragments ordered by similarity (most similar first).
      *
      * Note: Uses native query for pgvector operations.
+     * Uses CAST() instead of :: operator to avoid conflict with Spring Data JPA named parameter syntax.
      */
     @Query(value = """
-        SELECT f.*, 1 - (f.embedding <=> :queryEmbedding::vector) as similarity
+        SELECT f.*, 1 - (f.embedding <=> CAST(:queryEmbedding AS vector)) as similarity
         FROM thought_fragments f
         WHERE f.user_id = :userId
           AND f.deleted_at IS NULL
           AND f.embedding IS NOT NULL
-          AND 1 - (f.embedding <=> :queryEmbedding::vector) >= :minSimilarity
-        ORDER BY f.embedding <=> :queryEmbedding::vector
+          AND 1 - (f.embedding <=> CAST(:queryEmbedding AS vector)) >= :minSimilarity
+        ORDER BY f.embedding <=> CAST(:queryEmbedding AS vector)
         LIMIT :topK
     """, nativeQuery = true)
     fun findSimilarFragments(

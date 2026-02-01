@@ -5,6 +5,10 @@ import com.aletheia.pros.application.port.output.ExplanationResult
 import com.aletheia.pros.domain.decision.Decision
 import com.aletheia.pros.domain.fragment.ThoughtFragment
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.messages.UserMessage
@@ -28,7 +32,9 @@ private val logger = KotlinLogging.logger {}
 class LlmExplanationAdapter(
     private val chatClientBuilder: ChatClient.Builder,
     @Value("\${pros.explanation.system-prompt:}")
-    private val configuredSystemPrompt: String
+    private val configuredSystemPrompt: String,
+    @Value("\${pros.explanation.timeout-seconds:180}")
+    private val timeoutSeconds: Long
 ) : ExplanationPort {
 
     private val chatClient: ChatClient = chatClientBuilder.build()
@@ -71,11 +77,28 @@ class LlmExplanationAdapter(
                 )
             )
 
-            val response = chatClient.prompt(prompt).call().content() ?: ""
+            logger.debug { "Calling ChatClient for explanation generation (timeout: ${timeoutSeconds}s)..." }
+
+            // ChatClient.call() is a blocking call, wrap with IO dispatcher and timeout
+            val response = withTimeout(timeoutSeconds * 1000) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        chatClient.prompt(prompt).call().content() ?: ""
+                    } catch (e: Exception) {
+                        logger.error(e) { "ChatClient call failed: ${e.javaClass.simpleName} - ${e.message}" }
+                        throw e
+                    }
+                }
+            }
+
+            logger.debug { "ChatClient response received, length: ${response.length}" }
 
             parseExplanationResponse(response)
+        } catch (e: TimeoutCancellationException) {
+            logger.error { "Explanation generation timed out after ${timeoutSeconds}s for decision ${decision.id}" }
+            defaultExplanation(decision)
         } catch (e: Exception) {
-            logger.warn(e) { "Failed to generate explanation, using default" }
+            logger.error(e) { "Failed to generate explanation for decision ${decision.id}: ${e.javaClass.simpleName} - ${e.message}" }
             defaultExplanation(decision)
         }
     }
@@ -106,9 +129,22 @@ class LlmExplanationAdapter(
                 )
             )
 
-            chatClient.prompt(prompt).call().content() ?: "요약을 생성할 수 없습니다."
+            // ChatClient.call() is a blocking call, wrap with IO dispatcher and timeout
+            withTimeout(timeoutSeconds * 1000) {
+                withContext(Dispatchers.IO) {
+                    try {
+                        chatClient.prompt(prompt).call().content() ?: "요약을 생성할 수 없습니다."
+                    } catch (e: Exception) {
+                        logger.error(e) { "ChatClient call failed during summarization: ${e.javaClass.simpleName} - ${e.message}" }
+                        throw e
+                    }
+                }
+            }
+        } catch (e: TimeoutCancellationException) {
+            logger.error { "Fragment summarization timed out after ${timeoutSeconds}s" }
+            "요약 생성이 시간 초과되었습니다."
         } catch (e: Exception) {
-            logger.warn(e) { "Failed to summarize fragments" }
+            logger.error(e) { "Failed to summarize fragments: ${e.javaClass.simpleName} - ${e.message}" }
             "요약을 생성할 수 없습니다."
         }
     }

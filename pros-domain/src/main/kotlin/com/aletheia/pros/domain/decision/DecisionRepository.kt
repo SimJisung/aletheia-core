@@ -18,6 +18,12 @@ interface DecisionRepository {
     fun save(decision: Decision): Decision
 
     /**
+     * Updates the explanation for an existing decision.
+     * Returns the updated decision.
+     */
+    fun updateExplanation(decisionId: DecisionId, explanation: DecisionExplanation): Decision?
+
+    /**
      * Finds a decision by ID.
      */
     fun findById(id: DecisionId): Decision?

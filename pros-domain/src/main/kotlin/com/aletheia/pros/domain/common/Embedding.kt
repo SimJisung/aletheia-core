@@ -8,7 +8,7 @@ package com.aletheia.pros.domain.common
  * - Mapping fragments to value axes
  * - Decision context matching
  *
- * @property values The embedding vector (typically 1536 dimensions for OpenAI)
+ * @property values The embedding vector (dimension depends on the selected model)
  */
 data class Embedding(val values: FloatArray) {
 

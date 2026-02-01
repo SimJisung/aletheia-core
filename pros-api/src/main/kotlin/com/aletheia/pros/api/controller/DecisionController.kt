@@ -52,11 +52,14 @@ class DecisionController(
      *
      * NOTE: This is NOT a recommendation. The probabilities reflect
      * pattern fit, not "better" or "worse" options.
+     *
+     * @param detail If true, includes calculation breakdown for explainability
      */
     @PostMapping
     @Operation(summary = "Create a decision projection")
     suspend fun createDecision(
-        @Valid @RequestBody request: CreateDecisionRequest
+        @Valid @RequestBody request: CreateDecisionRequest,
+        @RequestParam(defaultValue = "false") detail: Boolean
     ): ResponseEntity<DecisionResponse> {
         val userId = SecurityUtils.getCurrentUserId()
         val priorityAxis = request.priorityAxis?.let {
@@ -76,16 +79,21 @@ class DecisionController(
         )
 
         val decision = createDecisionUseCase.execute(command)
-        return ResponseEntity.status(HttpStatus.CREATED).body(DecisionResponse.from(decision))
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+            DecisionResponse.from(decision, includeBreakdown = detail)
+        )
     }
 
     /**
      * Gets a decision by ID.
+     *
+     * @param detail If true, includes calculation breakdown for explainability
      */
     @GetMapping("/{id}")
     @Operation(summary = "Get a decision by ID")
     suspend fun getDecision(
-        @PathVariable id: String
+        @PathVariable id: String,
+        @RequestParam(defaultValue = "false") detail: Boolean
     ): ResponseEntity<DecisionResponse> {
         val userId = SecurityUtils.getCurrentUserId()
         val decisionId = DecisionId(UUID.fromString(id))
@@ -93,7 +101,7 @@ class DecisionController(
         val decision = queryDecisionUseCase.getDecision(decisionId, userId)
             ?: return ResponseEntity.notFound().build<DecisionResponse>()
 
-        return ResponseEntity.ok(DecisionResponse.from(decision))
+        return ResponseEntity.ok(DecisionResponse.from(decision, includeBreakdown = detail))
     }
 
     /**
@@ -124,12 +132,15 @@ class DecisionController(
 
     /**
      * Lists decisions for a user with pagination.
+     *
+     * @param detail If true, includes calculation breakdown for each decision
      */
     @GetMapping
     @Operation(summary = "List decisions with pagination")
     suspend fun listDecisions(
         @RequestParam(defaultValue = "20") limit: Int,
-        @RequestParam(defaultValue = "0") offset: Int
+        @RequestParam(defaultValue = "0") offset: Int,
+        @RequestParam(defaultValue = "false") detail: Boolean
     ): ResponseEntity<DecisionListResponse> {
         val userId = SecurityUtils.getCurrentUserId()
 
@@ -142,7 +153,7 @@ class DecisionController(
         val result = queryDecisionUseCase.listDecisions(query)
 
         val response = DecisionListResponse(
-            decisions = result.decisions.map { DecisionResponse.from(it) },
+            decisions = result.decisions.map { DecisionResponse.from(it, includeBreakdown = detail) },
             total = result.total,
             hasMore = result.hasMore
         )
@@ -174,7 +185,9 @@ class DecisionController(
 
         return when (val result = submitFeedbackUseCase.execute(command, userId)) {
             is FeedbackResult.Success ->
-                ResponseEntity.status(HttpStatus.CREATED).body(FeedbackResponse.from(result.feedback))
+                ResponseEntity.status(HttpStatus.CREATED).body(
+                    FeedbackResponse.from(result.feedback, result.impact)
+                )
             is FeedbackResult.NotFound ->
                 ResponseEntity.notFound().build()
             is FeedbackResult.AlreadyExists ->
@@ -184,13 +197,17 @@ class DecisionController(
 
     /**
      * Gets decisions that need feedback (24-72 hours old without feedback).
+     *
+     * @param detail If true, includes calculation breakdown for each decision
      */
     @GetMapping("/pending-feedback")
     @Operation(summary = "Get decisions that need feedback")
-    suspend fun getDecisionsNeedingFeedback(): ResponseEntity<List<DecisionResponse>> {
+    suspend fun getDecisionsNeedingFeedback(
+        @RequestParam(defaultValue = "false") detail: Boolean
+    ): ResponseEntity<List<DecisionResponse>> {
         val userId = SecurityUtils.getCurrentUserId()
         val decisions = queryDecisionUseCase.getPendingFeedbackDecisions(userId)
 
-        return ResponseEntity.ok(decisions.map { DecisionResponse.from(it) })
+        return ResponseEntity.ok(decisions.map { DecisionResponse.from(it, includeBreakdown = detail) })
     }
 }

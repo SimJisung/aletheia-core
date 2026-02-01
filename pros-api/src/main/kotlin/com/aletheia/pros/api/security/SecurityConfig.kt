@@ -1,5 +1,6 @@
 package com.aletheia.pros.api.security
 
+import jakarta.annotation.PostConstruct
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -7,6 +8,7 @@ import org.springframework.http.HttpMethod
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
@@ -31,6 +33,16 @@ class SecurityConfig(
     @Autowired(required = false)
     private var oAuth2AuthenticationFailureHandler: OAuth2AuthenticationFailureHandler? = null
 
+    /**
+     * Configure SecurityContextHolder to use INHERITABLE_THREAD_LOCAL strategy.
+     * This allows SecurityContext to be propagated to child threads,
+     * which is essential for Kotlin coroutines.
+     */
+    @PostConstruct
+    fun init() {
+        SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL)
+    }
+
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http
@@ -43,6 +55,7 @@ class SecurityConfig(
                     .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                     .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     .requestMatchers("/actuator/health").permitAll()
+                    .requestMatchers("/error").permitAll() // Allow error page access
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                     // All other endpoints require authentication

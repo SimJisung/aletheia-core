@@ -27,6 +27,17 @@ spring:
   jpa:
     show-sql: false
 
+  # Spring AI Configuration - OpenAI
+  ai:
+    model:
+      chat: openai
+      embedding: openai
+    # OpenAI configuration is inherited from application.yml
+    # PGVector Store Configuration for OpenAI (1536 dimensions)
+    vectorstore:
+      pgvector:
+        dimensions: 1536
+
 # Logging Configuration
 logging:
   level:

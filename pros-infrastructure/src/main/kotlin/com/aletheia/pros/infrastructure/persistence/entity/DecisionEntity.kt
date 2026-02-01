@@ -55,10 +55,38 @@ class DecisionEntity(
     val valueAlignment: Map<String, Double> = emptyMap(),
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    val createdAt: Instant
+    val createdAt: Instant,
+
+    // Explanation fields (nullable, populated on first request)
+    @Column(name = "explanation_summary", columnDefinition = "TEXT")
+    var explanationSummary: String? = null,
+
+    @Column(name = "explanation_evidence_summary", columnDefinition = "TEXT")
+    var explanationEvidenceSummary: String? = null,
+
+    @Column(name = "explanation_value_summary", columnDefinition = "TEXT")
+    var explanationValueSummary: String? = null,
+
+    @Column(name = "explanation_generated_at")
+    var explanationGeneratedAt: Instant? = null
 ) {
     @OneToOne(mappedBy = "decision", fetch = FetchType.LAZY)
     var feedback: DecisionFeedbackEntity? = null
+
+    /**
+     * Updates the explanation fields.
+     */
+    fun updateExplanation(
+        summary: String,
+        evidenceSummary: String,
+        valueSummary: String,
+        generatedAt: Instant
+    ) {
+        this.explanationSummary = summary
+        this.explanationEvidenceSummary = evidenceSummary
+        this.explanationValueSummary = valueSummary
+        this.explanationGeneratedAt = generatedAt
+    }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

@@ -1,5 +1,6 @@
 package com.aletheia.pros.infrastructure.ai.emotion
 
+import com.aletheia.pros.application.exception.QuotaExceededException
 import com.aletheia.pros.application.port.output.EmotionAnalysisPort
 import com.aletheia.pros.application.port.output.EmotionAnalysisResult
 import com.aletheia.pros.domain.fragment.Arousal
@@ -10,6 +11,7 @@ import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.messages.SystemMessage
 import org.springframework.ai.chat.messages.UserMessage
 import org.springframework.ai.chat.prompt.Prompt
+import org.springframework.ai.retry.NonTransientAiException
 import org.springframework.stereotype.Component
 
 private val logger = KotlinLogging.logger {}
@@ -63,7 +65,17 @@ class LlmEmotionAnalysisAdapter(
             val response = chatClient.prompt(prompt).call().content()
 
             parseResponse(response ?: "{}")
+        } catch (e: NonTransientAiException) {
+            logger.error(e) { "OpenAI API quota exceeded or non-retryable error in emotion analysis" }
+            // Check if it's a quota error by examining the error message
+            if (e.message?.contains("quota", ignoreCase = true) == true ||
+                e.message?.contains("insufficient_quota", ignoreCase = true) == true) {
+                throw QuotaExceededException("OpenAI API quota exceeded", e)
+            }
+            // For other non-transient errors, propagate the exception
+            throw e
         } catch (e: Exception) {
+            // For transient errors (network timeouts, etc.), use defaults
             logger.warn(e) { "Failed to analyze emotion, using defaults" }
             // Return neutral defaults on failure
             EmotionAnalysisResult(

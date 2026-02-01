@@ -3,6 +3,7 @@ package com.aletheia.pros.domain.decision
 import com.aletheia.pros.domain.common.DecisionId
 import com.aletheia.pros.domain.common.FragmentId
 import com.aletheia.pros.domain.common.UserId
+import com.aletheia.pros.domain.decision.breakdown.CalculationBreakdown
 import com.aletheia.pros.domain.value.ValueAxis
 import java.time.Instant
 
@@ -25,7 +26,9 @@ data class Decision(
     val optionB: String,
     val priorityAxis: ValueAxis?,
     val result: DecisionResult,
-    val createdAt: Instant
+    val createdAt: Instant,
+    /** LLM-generated explanation, cached after first generation */
+    val explanation: DecisionExplanation? = null
 ) {
     init {
         require(title.isNotBlank()) { "Decision title cannot be blank" }
@@ -41,6 +44,20 @@ data class Decision(
             "Option B exceeds maximum length of $MAX_OPTION_LENGTH"
         }
     }
+
+    /**
+     * Returns a new Decision with the explanation set.
+     * Immutable update pattern.
+     */
+    fun withExplanation(explanation: DecisionExplanation): Decision {
+        return copy(explanation = explanation)
+    }
+
+    /**
+     * Whether this decision has a cached explanation.
+     */
+    val hasExplanation: Boolean
+        get() = explanation != null
 
     companion object {
         const val MAX_TITLE_LENGTH = 500
@@ -65,7 +82,48 @@ data class Decision(
             optionB = optionB,
             priorityAxis = priorityAxis,
             result = result,
-            createdAt = createdAt
+            createdAt = createdAt,
+            explanation = null
+        )
+    }
+}
+
+/**
+ * DecisionExplanation contains LLM-generated explanation for a decision.
+ *
+ * This is cached in the database after first generation to avoid
+ * repeated LLM calls.
+ *
+ * The explanation describes WHY results were computed.
+ * It does NOT recommend or advise.
+ */
+data class DecisionExplanation(
+    /** High-level summary of why results were computed */
+    val summary: String,
+    /** Summary of evidence fragments used */
+    val evidenceSummary: String,
+    /** Summary of relevant value considerations */
+    val valueSummary: String,
+    /** When this explanation was generated */
+    val generatedAt: Instant = Instant.now()
+) {
+    init {
+        require(summary.isNotBlank()) { "Summary cannot be blank" }
+    }
+
+    companion object {
+        /**
+         * Creates an explanation from LLM result.
+         */
+        fun create(
+            summary: String,
+            evidenceSummary: String,
+            valueSummary: String
+        ): DecisionExplanation = DecisionExplanation(
+            summary = summary,
+            evidenceSummary = evidenceSummary,
+            valueSummary = valueSummary,
+            generatedAt = Instant.now()
         )
     }
 }
@@ -87,7 +145,9 @@ data class DecisionResult(
     val regretRiskA: RegretRisk,
     val regretRiskB: RegretRisk,
     val evidenceFragmentIds: List<FragmentId>,
-    val valueAlignment: Map<ValueAxis, Double>
+    val valueAlignment: Map<ValueAxis, Double>,
+    /** Calculation breakdown for explainability (nullable for backward compatibility) */
+    val breakdown: CalculationBreakdown? = null
 ) {
     init {
         require(evidenceFragmentIds.size <= MAX_EVIDENCE_COUNT) {
@@ -111,7 +171,7 @@ data class DecisionResult(
         const val MAX_EVIDENCE_COUNT = 10
 
         /**
-         * Computes decision result using softmax.
+         * Computes decision result using softmax (backward compatible, no breakdown).
          *
          * @param fitA Value fit score for option A
          * @param fitB Value fit score for option B
@@ -129,6 +189,38 @@ data class DecisionResult(
             lambda: Double,
             evidenceIds: List<FragmentId>,
             valueAlignment: Map<ValueAxis, Double>
+        ): DecisionResult = computeWithBreakdown(
+            fitA = fitA,
+            fitB = fitB,
+            regretA = regretA,
+            regretB = regretB,
+            lambda = lambda,
+            evidenceIds = evidenceIds,
+            valueAlignment = valueAlignment,
+            breakdown = null
+        )
+
+        /**
+         * Computes decision result with calculation breakdown for explainability.
+         *
+         * @param fitA Value fit score for option A
+         * @param fitB Value fit score for option B
+         * @param regretA Regret risk for option A
+         * @param regretB Regret risk for option B
+         * @param lambda Regret sensitivity weight
+         * @param evidenceIds IDs of evidence fragments
+         * @param valueAlignment Map of value axes to alignment scores
+         * @param breakdown Optional calculation breakdown for detailed explanation
+         */
+        fun computeWithBreakdown(
+            fitA: Double,
+            fitB: Double,
+            regretA: Double,
+            regretB: Double,
+            lambda: Double,
+            evidenceIds: List<FragmentId>,
+            valueAlignment: Map<ValueAxis, Double>,
+            breakdown: CalculationBreakdown?
         ): DecisionResult {
             // score = fit - λ * regret
             val scoreA = fitA - lambda * regretA
@@ -148,7 +240,8 @@ data class DecisionResult(
                 regretRiskA = RegretRisk(regretA.coerceIn(0.0, 1.0)),
                 regretRiskB = RegretRisk(regretB.coerceIn(0.0, 1.0)),
                 evidenceFragmentIds = evidenceIds.take(MAX_EVIDENCE_COUNT),
-                valueAlignment = valueAlignment
+                valueAlignment = valueAlignment,
+                breakdown = breakdown
             )
         }
     }

@@ -17,10 +17,25 @@ data class DecisionResponse(
     val optionB: String,
     val priorityAxis: String?,
     val result: DecisionResultResponse,
-    val createdAt: Instant
+    val createdAt: Instant,
+    /** Calculation breakdown for explainability (included when detail=true) */
+    val breakdown: CalculationBreakdownResponse? = null,
+    /** Cached LLM-generated explanation (null if not yet generated) */
+    val explanation: DecisionExplanationResponse? = null
 ) {
     companion object {
-        fun from(decision: Decision): DecisionResponse {
+        /**
+         * Creates response without breakdown (default, backward compatible).
+         */
+        fun from(decision: Decision): DecisionResponse = from(decision, includeBreakdown = false)
+
+        /**
+         * Creates response with optional breakdown.
+         *
+         * @param decision The decision domain object
+         * @param includeBreakdown Whether to include calculation breakdown
+         */
+        fun from(decision: Decision, includeBreakdown: Boolean): DecisionResponse {
             return DecisionResponse(
                 id = decision.id.toString(),
                 title = decision.title,
@@ -28,7 +43,18 @@ data class DecisionResponse(
                 optionB = decision.optionB,
                 priorityAxis = decision.priorityAxis?.name,
                 result = DecisionResultResponse.from(decision),
-                createdAt = decision.createdAt
+                createdAt = decision.createdAt,
+                breakdown = if (includeBreakdown) {
+                    decision.result.breakdown?.let { CalculationBreakdownResponse.from(it) }
+                } else null,
+                explanation = decision.explanation?.let {
+                    DecisionExplanationResponse(
+                        decisionId = decision.id.toString(),
+                        summary = it.summary,
+                        evidenceSummary = it.evidenceSummary,
+                        valueSummary = it.valueSummary
+                    )
+                }
             )
         }
     }

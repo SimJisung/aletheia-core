@@ -4,7 +4,13 @@ import com.aletheia.pros.domain.common.DecisionId
 import com.aletheia.pros.domain.common.FeedbackId
 import com.aletheia.pros.domain.common.FragmentId
 import com.aletheia.pros.domain.common.UserId
-import com.aletheia.pros.domain.decision.*
+import com.aletheia.pros.domain.decision.Decision
+import com.aletheia.pros.domain.decision.DecisionExplanation
+import com.aletheia.pros.domain.decision.DecisionFeedback
+import com.aletheia.pros.domain.decision.DecisionResult
+import com.aletheia.pros.domain.decision.FeedbackType
+import com.aletheia.pros.domain.decision.Probability
+import com.aletheia.pros.domain.decision.RegretRisk
 import com.aletheia.pros.domain.value.ValueAxis
 import com.aletheia.pros.infrastructure.persistence.entity.DecisionEntity
 import com.aletheia.pros.infrastructure.persistence.entity.DecisionFeedbackEntity
@@ -38,7 +44,11 @@ class DecisionMapper {
                 .toTypedArray(),
             valueAlignment = domain.result.valueAlignment
                 .mapKeys { it.key.name },
-            createdAt = domain.createdAt
+            createdAt = domain.createdAt,
+            explanationSummary = domain.explanation?.summary,
+            explanationEvidenceSummary = domain.explanation?.evidenceSummary,
+            explanationValueSummary = domain.explanation?.valueSummary,
+            explanationGeneratedAt = domain.explanation?.generatedAt
         )
     }
 
@@ -57,6 +67,16 @@ class DecisionMapper {
                 .mapKeys { ValueAxis.valueOf(it.key) }
         )
 
+        // Map explanation if present
+        val explanation = if (entity.explanationSummary != null) {
+            DecisionExplanation(
+                summary = entity.explanationSummary!!,
+                evidenceSummary = entity.explanationEvidenceSummary ?: "",
+                valueSummary = entity.explanationValueSummary ?: "",
+                generatedAt = entity.explanationGeneratedAt ?: entity.createdAt
+            )
+        } else null
+
         return Decision(
             id = DecisionId(entity.id),
             userId = UserId(entity.userId),
@@ -65,7 +85,8 @@ class DecisionMapper {
             optionB = entity.optionB,
             priorityAxis = entity.priorityAxis?.let { ValueAxis.valueOf(it) },
             result = result,
-            createdAt = entity.createdAt
+            createdAt = entity.createdAt,
+            explanation = explanation
         )
     }
 

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- 프로퍼티 정의 -->
+    <property name="LOG_PATTERN"
+              value="%d{HH:mm:ss.SSS} %highlight(%-5level) [%X{correlationId:---------}] %cyan(%-40.40logger{39}) : %msg%n"/>
+
+    <!-- 콘솔 Appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 프로파일별 설정: local, dev -->
+    <springProfile name="local,dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <!-- 애플리케이션 로그 -->
+        <logger name="com.aletheia.pros" level="DEBUG"/>
+
+        <!-- 요청 로깅 -->
+        <logger name="com.aletheia.pros.api.filter" level="DEBUG"/>
+
+        <!-- SQL 로깅 (필요시 활성화) -->
+        <!-- <logger name="org.hibernate.SQL" level="DEBUG"/> -->
+        <!-- <logger name="org.hibernate.type.descriptor.sql" level="TRACE"/> -->
+    </springProfile>
+
+    <!-- 프로파일별 설정: prod -->
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <logger name="com.aletheia.pros" level="INFO"/>
+        <logger name="com.aletheia.pros.api.filter" level="INFO"/>
+    </springProfile>
+
+    <!-- 기본 설정 (프로파일 미지정 시) -->
+    <springProfile name="default">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <logger name="com.aletheia.pros" level="DEBUG"/>
+        <logger name="com.aletheia.pros.api.filter" level="DEBUG"/>
+    </springProfile>
+
+</configuration>

@@ -38,6 +38,21 @@ class DecisionRepositoryAdapter(
         return mapper.toDomain(saved)
     }
 
+    override fun updateExplanation(decisionId: DecisionId, explanation: DecisionExplanation): Decision? {
+        val entity = decisionRepository.findById(decisionId.value).orElse(null)
+            ?: return null
+
+        entity.updateExplanation(
+            summary = explanation.summary,
+            evidenceSummary = explanation.evidenceSummary,
+            valueSummary = explanation.valueSummary,
+            generatedAt = explanation.generatedAt
+        )
+
+        val saved = decisionRepository.save(entity)
+        return mapper.toDomain(saved)
+    }
+
     @Transactional(readOnly = true)
     override fun findById(id: DecisionId): Decision? {
         return decisionRepository.findById(id.value)

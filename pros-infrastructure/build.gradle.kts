@@ -33,6 +33,9 @@ dependencies {
     // Spring AI - OpenAI (for embeddings and LLM)
     implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
+    // Spring AI - Ollama (for local development)
+    implementation("org.springframework.ai:spring-ai-starter-model-ollama")
+
     // Spring AI - PGVector Store
     implementation("org.springframework.ai:spring-ai-starter-vector-store-pgvector")
 
@@ -40,7 +43,7 @@ dependencies {
     // implementation("org.springframework.ai:spring-ai-mcp")
 
     // PostgreSQL
-    runtimeOnly("org.postgresql:postgresql")
+    implementation("org.postgresql:postgresql")
 
     // pgvector Java support
     implementation("com.pgvector:pgvector:0.1.6")
@@ -51,6 +54,9 @@ dependencies {
 
     // Jackson for JSON
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+
+    // Coroutines for async handling
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")

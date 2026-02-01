@@ -230,7 +230,7 @@ class FragmentController(private val inputPort: FragmentInputPort) {
 
 - **Migrations**: Use Flyway in `pros-infrastructure/src/main/resources/db/migration/`
 - **Naming**: `V{number}__{description}.sql` (e.g., `V1__create_extensions.sql`)
-- **Vector columns**: Use `vector(1536)` type for embeddings
+- **Vector columns**: Use `vector` type for embeddings (dimension depends on model)
 - **Soft delete**: Use `deleted_at` timestamp, never physical delete
 
 ### Testing Patterns

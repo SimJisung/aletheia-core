@@ -252,7 +252,7 @@ CREATE TABLE thought_fragments (
     mood_valence DOUBLE PRECISION NOT NULL,
     arousal DOUBLE PRECISION NOT NULL,
     topic_hint VARCHAR(255),
-    embedding vector(1536),
+    embedding vector,
     deleted_at TIMESTAMPTZ,
 
     -- Append-only: no UPDATE allowed via application

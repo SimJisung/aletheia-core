@@ -58,9 +58,9 @@ class UserSettingsProviderImpl(
     /**
      * Updates lambda for a user based on feedback.
      */
-    fun updateLambda(userId: UserId, newLambda: Double) {
+    override suspend fun updateLambda(userId: UserId, newLambda: Double) {
         val entity = repository.findByUserId(userId.value)
-            ?: throw IllegalArgumentException("User settings not found: $userId")
+            ?: createDefaultSettingsSafely(userId)
 
         entity.lambda = newLambda.coerceIn(0.1, 5.0)
         entity.updatedAt = Instant.now()
@@ -70,9 +70,9 @@ class UserSettingsProviderImpl(
     /**
      * Updates regret prior for a user based on historical data.
      */
-    fun updateRegretPrior(userId: UserId, newPrior: Double) {
+    override suspend fun updateRegretPrior(userId: UserId, newPrior: Double) {
         val entity = repository.findByUserId(userId.value)
-            ?: throw IllegalArgumentException("User settings not found: $userId")
+            ?: createDefaultSettingsSafely(userId)
 
         entity.regretPrior = newPrior.coerceIn(0.0, 1.0)
         entity.updatedAt = Instant.now()

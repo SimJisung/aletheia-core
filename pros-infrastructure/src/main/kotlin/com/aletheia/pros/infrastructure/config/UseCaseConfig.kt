@@ -7,6 +7,7 @@ import com.aletheia.pros.application.port.output.ValueExtractionPort
 import com.aletheia.pros.application.usecase.auth.AuthUseCase
 import com.aletheia.pros.application.usecase.auth.OAuthUseCase
 import com.aletheia.pros.application.usecase.auth.PasswordEncoderPort
+import com.aletheia.pros.application.usecase.user.GetCurrentUserUseCase
 import com.aletheia.pros.domain.user.OAuthAccountRepository
 import com.aletheia.pros.application.usecase.decision.CreateDecisionUseCase
 import com.aletheia.pros.application.usecase.decision.GetDecisionExplanationUseCase
@@ -16,11 +17,14 @@ import com.aletheia.pros.application.usecase.decision.UserSettingsProvider
 import com.aletheia.pros.application.usecase.fragment.CreateFragmentUseCase
 import com.aletheia.pros.application.usecase.fragment.DeleteFragmentUseCase
 import com.aletheia.pros.application.usecase.fragment.QueryFragmentUseCase
+import com.aletheia.pros.application.usecase.value.GetValueImportanceUseCase
 import com.aletheia.pros.application.usecase.value.QueryValueGraphUseCase
+import com.aletheia.pros.application.usecase.value.SetValueImportanceUseCase
 import com.aletheia.pros.domain.decision.DecisionRepository
 import com.aletheia.pros.domain.fragment.FragmentRepository
 import com.aletheia.pros.domain.user.UserRepository
 import com.aletheia.pros.domain.value.ValueGraphRepository
+import com.aletheia.pros.domain.value.ValueImportanceRepository
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -74,6 +78,7 @@ class UseCaseConfig {
         decisionRepository: DecisionRepository,
         fragmentRepository: FragmentRepository,
         valueGraphRepository: ValueGraphRepository,
+        valueImportanceRepository: ValueImportanceRepository,
         embeddingPort: EmbeddingPort,
         userSettingsProvider: UserSettingsProvider
     ): CreateDecisionUseCase {
@@ -81,6 +86,7 @@ class UseCaseConfig {
             decisionRepository = decisionRepository,
             fragmentRepository = fragmentRepository,
             valueGraphRepository = valueGraphRepository,
+            valueImportanceRepository = valueImportanceRepository,
             embeddingPort = embeddingPort,
             userSettingsProvider = userSettingsProvider
         )
@@ -121,10 +127,12 @@ class UseCaseConfig {
 
     @Bean
     fun submitFeedbackUseCase(
-        decisionRepository: DecisionRepository
+        decisionRepository: DecisionRepository,
+        userSettingsProvider: UserSettingsProvider
     ): SubmitFeedbackUseCase {
         return SubmitFeedbackUseCase(
-            decisionRepository = decisionRepository
+            decisionRepository = decisionRepository,
+            userSettingsProvider = userSettingsProvider
         )
     }
 
@@ -147,6 +155,33 @@ class UseCaseConfig {
         return OAuthUseCase(
             userRepository = userRepository,
             oauthAccountRepository = oauthAccountRepository
+        )
+    }
+
+    @Bean
+    fun getCurrentUserUseCase(
+        userRepository: UserRepository
+    ): GetCurrentUserUseCase {
+        return GetCurrentUserUseCase(
+            userRepository = userRepository
+        )
+    }
+
+    @Bean
+    fun setValueImportanceUseCase(
+        valueImportanceRepository: ValueImportanceRepository
+    ): SetValueImportanceUseCase {
+        return SetValueImportanceUseCase(
+            repository = valueImportanceRepository
+        )
+    }
+
+    @Bean
+    fun getValueImportanceUseCase(
+        valueImportanceRepository: ValueImportanceRepository
+    ): GetValueImportanceUseCase {
+        return GetValueImportanceUseCase(
+            repository = valueImportanceRepository
         )
     }
 }

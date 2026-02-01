@@ -79,3 +79,16 @@ value class FeedbackId(val value: UUID) {
 
     override fun toString(): String = value.toString()
 }
+
+/**
+ * Type-safe identifier for ValueImportance entities.
+ */
+@JvmInline
+value class ValueImportanceId(val value: UUID) {
+    companion object {
+        fun generate(): ValueImportanceId = ValueImportanceId(UUID.randomUUID())
+        fun from(value: String): ValueImportanceId = ValueImportanceId(UUID.fromString(value))
+    }
+
+    override fun toString(): String = value.toString()
+}

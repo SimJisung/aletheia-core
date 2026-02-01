@@ -7,10 +7,17 @@ import com.aletheia.pros.domain.common.UserId
 import com.aletheia.pros.domain.decision.Decision
 import com.aletheia.pros.domain.decision.DecisionRepository
 import com.aletheia.pros.domain.decision.DecisionResult
+import com.aletheia.pros.domain.decision.breakdown.CalculationBreakdown
+import com.aletheia.pros.domain.decision.breakdown.CalculationParameters
+import com.aletheia.pros.domain.decision.breakdown.FitBreakdown
+import com.aletheia.pros.domain.decision.breakdown.FragmentContribution
+import com.aletheia.pros.domain.decision.breakdown.RegretBreakdown
 import com.aletheia.pros.domain.fragment.FragmentRepository
 import com.aletheia.pros.domain.fragment.SimilarFragment
 import com.aletheia.pros.domain.value.ValueAxis
 import com.aletheia.pros.domain.value.ValueGraphRepository
+import com.aletheia.pros.domain.value.ValueImportance
+import com.aletheia.pros.domain.value.ValueImportanceRepository
 import kotlin.math.exp
 
 /**
@@ -31,6 +38,7 @@ class CreateDecisionUseCase(
     private val decisionRepository: DecisionRepository,
     private val fragmentRepository: FragmentRepository,
     private val valueGraphRepository: ValueGraphRepository,
+    private val valueImportanceRepository: ValueImportanceRepository,
     private val embeddingPort: EmbeddingPort,
     private val userSettingsProvider: UserSettingsProvider
 ) {
@@ -39,6 +47,14 @@ class CreateDecisionUseCase(
         private const val EVIDENCE_COUNT = 5
         private const val SIMILAR_FRAGMENTS_COUNT = 20
         private const val PRIORITY_AXIS_BOOST = 0.35
+        private const val VOLATILITY_WEIGHT = 0.3
+        private const val NEGATIVITY_WEIGHT = 0.3
+
+        // Value alignment calculation constants
+        private const val DEFAULT_IMPORTANCE = 0.5
+        private const val IMPLICIT_WEIGHT_FACTOR = 0.5
+        private const val CONFIDENCE_THRESHOLD = 10.0
+        private const val MAX_AMPLIFIED_DIFF = 4.0
     }
 
     /**
@@ -59,6 +75,9 @@ class CreateDecisionUseCase(
         // 3. Get value graph
         val valueGraph = valueGraphRepository.findValueGraph(command.userId)
 
+        // 3.5. Get user's explicit value importance
+        val valueImportance = valueImportanceRepository.findByUserId(command.userId)
+
         // 4. Get user settings (lambda)
         val userSettings = userSettingsProvider.getSettings(command.userId)
 
@@ -66,24 +85,37 @@ class CreateDecisionUseCase(
         val optionAEmbedding = embeddingPort.embed(command.optionA)
         val optionBEmbedding = embeddingPort.embed(command.optionB)
 
-        // 6. Calculate value fit for each option
-        val (fitA, fitB) = calculateValueFit(
+        // 6. Calculate value fit with breakdown
+        val fitBreakdown = calculateValueFitWithBreakdown(
             optionAEmbedding = optionAEmbedding,
             optionBEmbedding = optionBEmbedding,
             similarFragments = similarFragments,
             priorityAxis = command.priorityAxis
         )
 
-        // 7. Calculate regret risk
-        val (regretA, regretB) = calculateRegretRisk(
-            command.userId,
-            similarFragments,
-            userSettings.regretPrior,
-            optionAEmbedding,
-            optionBEmbedding
+        // 7. Calculate regret risk with breakdown
+        val regretBreakdown = calculateRegretRiskWithBreakdown(
+            userId = command.userId,
+            similarFragments = similarFragments,
+            basePrior = userSettings.regretPrior,
+            optionAEmbedding = optionAEmbedding,
+            optionBEmbedding = optionBEmbedding
         )
 
-        // 8. Compute decision result
+        // 8. Build calculation parameters
+        val parameters = CalculationParameters.withUserSettings(
+            lambda = userSettings.lambda,
+            regretPrior = userSettings.regretPrior
+        )
+
+        // 9. Create calculation breakdown
+        val calculationBreakdown = CalculationBreakdown.compute(
+            fit = fitBreakdown,
+            regret = regretBreakdown,
+            parameters = parameters
+        )
+
+        // 10. Compute decision result with breakdown
         val evidenceIds = similarFragments
             .take(EVIDENCE_COUNT)
             .map { it.fragment.id }
@@ -91,20 +123,22 @@ class CreateDecisionUseCase(
         val valueAlignment = calculateValueAlignment(
             optionAEmbedding = optionAEmbedding,
             optionBEmbedding = optionBEmbedding,
-            nodes = valueGraph?.nodes ?: emptyList()
+            nodes = valueGraph?.nodes ?: emptyList(),
+            importance = valueImportance
         )
 
-        val result = DecisionResult.compute(
-            fitA = fitA,
-            fitB = fitB,
-            regretA = regretA,
-            regretB = regretB,
+        val result = DecisionResult.computeWithBreakdown(
+            fitA = fitBreakdown.fitScoreA,
+            fitB = fitBreakdown.fitScoreB,
+            regretA = regretBreakdown.regretRiskA,
+            regretB = regretBreakdown.regretRiskB,
             lambda = userSettings.lambda,
             evidenceIds = evidenceIds,
-            valueAlignment = valueAlignment
+            valueAlignment = valueAlignment,
+            breakdown = calculationBreakdown
         )
 
-        // 9. Create and persist decision
+        // 11. Create and persist decision
         val decision = Decision.create(
             userId = command.userId,
             title = command.title,
@@ -128,14 +162,17 @@ class CreateDecisionUseCase(
         }
     }
 
-    private suspend fun calculateValueFit(
+    /**
+     * Calculates value fit with detailed breakdown for explainability.
+     */
+    private suspend fun calculateValueFitWithBreakdown(
         optionAEmbedding: Embedding,
         optionBEmbedding: Embedding,
         similarFragments: List<SimilarFragment>,
         priorityAxis: ValueAxis?
-    ): Pair<Double, Double> {
+    ): FitBreakdown {
         if (similarFragments.isEmpty()) {
-            return 0.5 to 0.5
+            return FitBreakdown.empty(PRIORITY_AXIS_BOOST)
         }
 
         val priorityEmbedding = priorityAxis?.let { axis ->
@@ -146,14 +183,17 @@ class CreateDecisionUseCase(
         var fitA = 0.0
         var fitB = 0.0
         var totalWeight = 0.0
+        val contributions = mutableListOf<FragmentContribution>()
 
         for (similar in similarFragments) {
             val fragmentEmbedding = similar.fragment.embedding ?: continue
+
             val priorityWeight = priorityEmbedding?.let { axisEmbedding ->
                 val axisSimilarity = fragmentEmbedding.cosineSimilarity(axisEmbedding)
                 val axisRelevance = axisSimilarity.coerceAtLeast(0.0)
                 1.0 + (PRIORITY_AXIS_BOOST * axisRelevance)
             } ?: 1.0
+
             val weight = similar.similarity * priorityWeight
 
             // Calculate how well each option aligns with this fragment
@@ -163,9 +203,25 @@ class CreateDecisionUseCase(
             // Weight by fragment's emotional valence (positive fragments = stronger signal)
             val valenceWeight = (1 + similar.fragment.moodValence.value) / 2
 
-            fitA += alignA * weight * valenceWeight
-            fitB += alignB * weight * valenceWeight
+            val contribA = alignA * weight * valenceWeight
+            val contribB = alignB * weight * valenceWeight
+
+            fitA += contribA
+            fitB += contribB
             totalWeight += weight
+
+            // Capture contribution for breakdown
+            contributions.add(
+                FragmentContribution(
+                    fragmentId = similar.fragment.id,
+                    fragmentSummary = similar.fragment.textRaw.take(FragmentContribution.MAX_SUMMARY_LENGTH),
+                    similarity = similar.similarity,
+                    valenceWeight = valenceWeight,
+                    priorityWeight = priorityWeight,
+                    contributionToA = contribA,
+                    contributionToB = contribB
+                )
+            )
         }
 
         if (totalWeight > 0) {
@@ -173,20 +229,31 @@ class CreateDecisionUseCase(
             fitB /= totalWeight
         }
 
-        return fitA to fitB
+        return FitBreakdown(
+            fitScoreA = fitA.coerceIn(0.0, 1.0),
+            fitScoreB = fitB.coerceIn(0.0, 1.0),
+            totalWeight = totalWeight,
+            priorityAxisBoost = PRIORITY_AXIS_BOOST,
+            fragmentContributions = contributions
+                .sortedByDescending { it.totalContribution }
+                .take(FitBreakdown.MAX_CONTRIBUTIONS)
+        )
     }
 
     private fun buildPriorityAxisText(axis: ValueAxis): String {
         return "Value axis: ${axis.displayNameEn}. ${axis.description}"
     }
 
-    private fun calculateRegretRisk(
+    /**
+     * Calculates regret risk with detailed breakdown for explainability.
+     */
+    private fun calculateRegretRiskWithBreakdown(
         userId: UserId,
         similarFragments: List<SimilarFragment>,
         basePrior: Double,
         optionAEmbedding: Embedding,
         optionBEmbedding: Embedding
-    ): Pair<Double, Double> {
+    ): RegretBreakdown {
         // Get historical regret rate from past decisions
         val feedbackStats = decisionRepository.getFeedbackStats(userId)
 
@@ -204,11 +271,20 @@ class CreateDecisionUseCase(
         val optionNegativityB = calculateOptionNegativity(optionBEmbedding, similarFragments)
 
         // Higher variance = higher regret risk (uncertainty)
-        val baseRegret = historicalRegretRate + valenceVariance * 0.3
-        val regretA = (baseRegret + (optionNegativityA - 0.5) * 0.3).coerceIn(0.0, 1.0)
-        val regretB = (baseRegret + (optionNegativityB - 0.5) * 0.3).coerceIn(0.0, 1.0)
+        val baseRegret = historicalRegretRate + valenceVariance * VOLATILITY_WEIGHT
+        val regretA = (baseRegret + (optionNegativityA - 0.5) * NEGATIVITY_WEIGHT).coerceIn(0.0, 1.0)
+        val regretB = (baseRegret + (optionNegativityB - 0.5) * NEGATIVITY_WEIGHT).coerceIn(0.0, 1.0)
 
-        return regretA to regretB
+        return RegretBreakdown(
+            historicalRegretRate = historicalRegretRate,
+            valenceVariance = valenceVariance,
+            optionNegativityA = optionNegativityA,
+            optionNegativityB = optionNegativityB,
+            baseRegret = baseRegret,
+            regretRiskA = regretA,
+            regretRiskB = regretB,
+            feedbackCount = feedbackStats.totalWithFeedback
+        )
     }
 
     private fun calculateOptionNegativity(
@@ -251,14 +327,17 @@ class CreateDecisionUseCase(
     /**
      * Calculates how each option aligns with the user's value axes.
      *
-     * Algorithm:
+     * IMPROVED ALGORITHM:
      * 1. Generate embedding for each ValueAxis description
      * 2. Calculate cosine similarity between each option and each axis
-     * 3. Apply user's value node weights (if available)
-     * 4. Compute differential alignment: (simA - simB + 1) / 2
-     *    - 0.5 = neutral (both options align equally)
-     *    - >0.5 = option A aligns more with this axis
-     *    - <0.5 = option B aligns more with this axis
+     * 3. Apply user's explicit importance weights (NEW)
+     * 4. Apply user's implicit value node weights from fragments (improved)
+     * 5. Normalize with amplification for better differentiation
+     *
+     * Output interpretation:
+     * - 0.5 = neutral (both options align equally)
+     * - >0.5 = option A aligns more with this axis
+     * - <0.5 = option B aligns more with this axis
      *
      * This is purely descriptive - it describes how options relate to values,
      * NOT which option is "better".
@@ -266,38 +345,45 @@ class CreateDecisionUseCase(
     private suspend fun calculateValueAlignment(
         optionAEmbedding: Embedding,
         optionBEmbedding: Embedding,
-        nodes: List<com.aletheia.pros.domain.value.ValueNode>
+        nodes: List<com.aletheia.pros.domain.value.ValueNode>,
+        importance: ValueImportance?
     ): Map<ValueAxis, Double> {
         val nodeMap = nodes.associateBy { it.axis }
         val alignments = mutableMapOf<ValueAxis, Double>()
 
         for (axis in ValueAxis.all()) {
-            // Generate embedding for this value axis
+            // Step 1: Generate embedding for this value axis
             val axisText = buildAxisText(axis)
             val axisEmbedding = embeddingPort.embed(axisText)
 
-            // Calculate similarity of each option to this axis
+            // Step 2: Calculate similarity of each option to this axis
             val simA = optionAEmbedding.cosineSimilarity(axisEmbedding)
             val simB = optionBEmbedding.cosineSimilarity(axisEmbedding)
 
-            // Compute differential alignment (normalized to 0-1 range)
-            // >0.5 means option A is more aligned, <0.5 means option B is more aligned
-            var alignment = (simA - simB + 1.0) / 2.0
+            // Step 3: Compute base difference
+            val baseDiff = simA - simB  // Range: -1.0 to 1.0
 
-            // Apply user's value weight if available
-            // If user has strong positive valence for this axis, amplify the difference from neutral
-            // If user has negative valence, dampen the difference
+            // Step 4: Apply explicit importance weight (NEW)
+            // Higher importance = more amplification of the difference
+            val explicitWeight = importance?.getImportance(axis) ?: DEFAULT_IMPORTANCE
+            // Amplify difference for important values (1.0 + importance makes range 1.0-2.0)
+            var amplifiedDiff = baseDiff * (1.0 + explicitWeight)
+
+            // Step 5: Apply implicit weight from fragment history (IMPROVED)
             val node = nodeMap[axis]
             if (node != null && node.fragmentCount > 0) {
-                val userWeight = node.avgValence  // -1.0 to 1.0
-                val normalizedWeight = (userWeight + 1.0) / 2.0  // 0.0 to 1.0
-
-                // Amplify or dampen the deviation from neutral (0.5)
-                val deviation = alignment - 0.5
-                alignment = 0.5 + (deviation * normalizedWeight * 2.0)
+                // Confidence factor based on fragment count (caps at 1.0 when count >= 10)
+                val confidence = minOf(node.fragmentCount / CONFIDENCE_THRESHOLD, 1.0)
+                // Valence adjustment: positive valence amplifies, negative dampens
+                val valenceAdjustment = 1.0 + (node.avgValence * IMPLICIT_WEIGHT_FACTOR * confidence)
+                amplifiedDiff *= valenceAdjustment
             }
 
-            alignments[axis] = alignment.coerceIn(0.0, 1.0)
+            // Step 6: Normalize to 0.0-1.0 range with better spread
+            // Max possible diff after amplification is ~4.0 (baseDiff=1.0, explicitWeight=1.0, valence=1.0)
+            val normalizedAlignment = (amplifiedDiff / MAX_AMPLIFIED_DIFF + 1.0) / 2.0
+
+            alignments[axis] = normalizedAlignment.coerceIn(0.0, 1.0)
         }
 
         return alignments
@@ -316,6 +402,20 @@ class CreateDecisionUseCase(
  */
 interface UserSettingsProvider {
     suspend fun getSettings(userId: UserId): UserSettings
+
+    /**
+     * Updates lambda for a user based on feedback patterns.
+     * @param userId The user to update
+     * @param newLambda The new lambda value (will be clamped to valid range)
+     */
+    suspend fun updateLambda(userId: UserId, newLambda: Double)
+
+    /**
+     * Updates regret prior for a user based on historical data.
+     * @param userId The user to update
+     * @param newPrior The new prior value (will be clamped to 0.0-1.0)
+     */
+    suspend fun updateRegretPrior(userId: UserId, newPrior: Double)
 }
 
 /**

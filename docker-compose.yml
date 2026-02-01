@@ -24,6 +24,21 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Ollama (for local AI model serving)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: pros-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
   # pgAdmin (optional, for database management)
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -41,4 +56,6 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  ollama_data:
     driver: local

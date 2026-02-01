@@ -1,16 +1,18 @@
 package com.aletheia.pros.api.dto.response
 
+import com.aletheia.pros.api.util.CorrelationIdHolder
 import java.time.Instant
 
 /**
- * Standard error response.
+ * Standard error response with correlation ID for request tracing.
  */
 data class ErrorResponse(
     val timestamp: Instant = Instant.now(),
     val status: Int,
     val error: String,
     val message: String,
-    val path: String
+    val path: String,
+    val correlationId: String? = CorrelationIdHolder.get()
 )
 
 /**
@@ -22,7 +24,8 @@ data class ValidationErrorResponse(
     val error: String = "Bad Request",
     val message: String = "Validation failed",
     val path: String,
-    val errors: List<FieldError>
+    val errors: List<FieldError>,
+    val correlationId: String? = CorrelationIdHolder.get()
 )
 
 /**

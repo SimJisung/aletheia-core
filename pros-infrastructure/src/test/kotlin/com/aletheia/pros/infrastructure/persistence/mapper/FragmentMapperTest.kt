@@ -23,7 +23,7 @@ class FragmentMapperTest {
     private val userId = UserId.generate()
     private val fragmentId = FragmentId.generate()
     private val createdAt = Instant.now()
-    private val testEmbedding = Embedding(FloatArray(1536) { it * 0.001f })
+    private val testEmbedding = Embedding(FloatArray(8) { it * 0.001f })
 
     @BeforeEach
     fun setUp() {
@@ -60,7 +60,7 @@ class FragmentMapperTest {
             assertThat(entity.moodValence).isEqualTo(0.7)
             assertThat(entity.arousal).isEqualTo(0.5)
             assertThat(entity.topicHint).isEqualTo("work")
-            assertThat(entity.embedding).isEqualTo(testEmbedding.values)
+            assertThat(entity.embedding).isEqualTo(mapper.embeddingToString(testEmbedding))
             assertThat(entity.deletedAt).isNull()
         }
 
@@ -168,7 +168,7 @@ class FragmentMapperTest {
                 moodValence = 0.7,
                 arousal = 0.5,
                 topicHint = "work",
-                embedding = testEmbedding.values,
+                embedding = mapper.embeddingToString(testEmbedding),
                 deletedAt = null
             )
 

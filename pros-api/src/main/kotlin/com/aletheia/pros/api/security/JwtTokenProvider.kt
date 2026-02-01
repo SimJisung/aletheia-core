@@ -8,6 +8,7 @@ import io.jsonwebtoken.MalformedJwtException
 import io.jsonwebtoken.UnsupportedJwtException
 import io.jsonwebtoken.security.Keys
 import io.jsonwebtoken.security.SecurityException
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.util.Date
@@ -25,9 +26,12 @@ class JwtTokenProvider(
     @Value("\${jwt.expiration-ms:86400000}")
     private val expirationMs: Long // Default: 24 hours
 ) {
+    private val logger = LoggerFactory.getLogger(JwtTokenProvider::class.java)
 
     private val secretKey: SecretKey by lazy {
-        Keys.hmacShaKeyFor(secretKeyString.toByteArray())
+        val key = Keys.hmacShaKeyFor(secretKeyString.toByteArray())
+        logger.debug("JWT SecretKey initialized with algorithm: ${key.algorithm}, key length: ${secretKeyString.length} chars")
+        key
     }
 
     /**
@@ -66,18 +70,25 @@ class JwtTokenProvider(
      * Validates the token.
      */
     fun validateToken(token: String): Boolean {
+        logger.debug("Validating JWT token (first 20 chars): ${token.take(20)}...")
         return try {
             getClaims(token)
+            logger.debug("JWT token validated successfully")
             true
         } catch (e: SecurityException) {
+            logger.warn("JWT Security Exception: ${e.message}", e)
             false
         } catch (e: MalformedJwtException) {
+            logger.warn("JWT Malformed: ${e.message}", e)
             false
         } catch (e: ExpiredJwtException) {
+            logger.warn("JWT Expired: ${e.message}", e)
             false
         } catch (e: UnsupportedJwtException) {
+            logger.warn("JWT Unsupported: ${e.message}", e)
             false
         } catch (e: IllegalArgumentException) {
+            logger.warn("JWT Illegal Argument: ${e.message}", e)
             false
         }
     }

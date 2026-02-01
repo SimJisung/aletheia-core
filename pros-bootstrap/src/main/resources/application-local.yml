@@ -25,10 +25,32 @@ spring:
   jpa:
     show-sql: true
 
+  # Spring AI Configuration - Ollama
+  ai:
+    model:
+      chat: ollama
+      embedding: ollama
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        options:
+          model: gpt-oss:20b
+      embedding:
+        options:
+          model: bge-m3
+      init:
+        pull-model-strategy: when_missing
+    # PGVector Store Configuration for bge-m3 (1024 dimensions)
+    vectorstore:
+      pgvector:
+        dimensions: 1024
+
 # Logging Configuration
 logging:
   level:
     root: INFO
     com.aletheia.pros: DEBUG
+    com.aletheia.pros.api.security: DEBUG
     org.springframework.ai: INFO
     org.hibernate.SQL: DEBUG
+    org.springframework.security: DEBUG

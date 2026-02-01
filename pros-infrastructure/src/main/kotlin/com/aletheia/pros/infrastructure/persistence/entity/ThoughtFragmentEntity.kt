@@ -1,8 +1,7 @@
 package com.aletheia.pros.infrastructure.persistence.entity
 
 import jakarta.persistence.*
-import org.hibernate.annotations.JdbcTypeCode
-import org.hibernate.type.SqlTypes
+import org.hibernate.annotations.ColumnTransformer
 import java.time.Instant
 import java.util.UUID
 
@@ -37,9 +36,9 @@ class ThoughtFragmentEntity(
     @Column(name = "topic_hint", updatable = false)
     val topicHint: String? = null,
 
-    @Column(name = "embedding", columnDefinition = "vector(1536)")
-    @JdbcTypeCode(SqlTypes.VECTOR)
-    var embedding: FloatArray? = null,
+    @Column(name = "embedding", columnDefinition = "vector")
+    @ColumnTransformer(write = "?::vector")
+    var embedding: String? = null,
 
     @Column(name = "deleted_at")
     var deletedAt: Instant? = null

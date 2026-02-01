@@ -10,6 +10,7 @@ import com.aletheia.pros.domain.fragment.SimilarFragment
 import com.aletheia.pros.domain.fragment.ThoughtFragment
 import com.aletheia.pros.infrastructure.persistence.mapper.FragmentMapper
 import com.aletheia.pros.infrastructure.persistence.repository.JpaThoughtFragmentRepository
+import org.postgresql.util.PGobject
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
@@ -109,16 +110,17 @@ class FragmentRepositoryAdapter(
         )
 
         return results.map { row ->
+            val embedding = extractEmbedding(row[7])
             val fragment = ThoughtFragment(
                 id = FragmentId(row[0] as UUID),
                 userId = UserId(row[1] as UUID),
                 textRaw = row[2] as String,
-                createdAt = (row[3] as java.sql.Timestamp).toInstant(),
+                createdAt = extractInstant(row[3])!!,
                 moodValence = MoodValence(row[4] as Double),
                 arousal = Arousal(row[5] as Double),
                 topicHint = row[6] as? String,
-                embedding = (row[7] as? FloatArray)?.let { Embedding(it) },
-                deletedAt = row[8] as? Instant
+                embedding = embedding,
+                deletedAt = extractInstant(row[8])
             )
             val similarity = (row[9] as Number).toDouble()
             SimilarFragment(fragment, similarity)
@@ -136,5 +138,29 @@ class FragmentRepositoryAdapter(
         val uuids = ids.map { it.value }
         val entities = jpaRepository.findByIdsNotDeleted(uuids)
         return mapper.toDomainList(entities)
+    }
+
+    private fun extractEmbedding(value: Any?): Embedding? {
+        val vectorString = when (value) {
+            null -> null
+            is String -> value
+            is PGobject -> value.value
+            else -> value.toString()
+        }
+        return vectorString?.let { mapper.stringToEmbedding(it) }
+    }
+
+    /**
+     * Extracts Instant from native query result.
+     * Handles both java.time.Instant (Hibernate 6) and java.sql.Timestamp (legacy JDBC).
+     */
+    private fun extractInstant(value: Any?): Instant? {
+        return when (value) {
+            null -> null
+            is Instant -> value
+            is java.sql.Timestamp -> value.toInstant()
+            is java.time.OffsetDateTime -> value.toInstant()
+            else -> throw IllegalArgumentException("Unsupported timestamp type: ${value::class.java.name}")
+        }
     }
 }

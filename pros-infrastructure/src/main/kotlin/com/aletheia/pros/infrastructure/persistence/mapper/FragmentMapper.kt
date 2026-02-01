@@ -27,7 +27,7 @@ class FragmentMapper {
             moodValence = domain.moodValence.value,
             arousal = domain.arousal.value,
             topicHint = domain.topicHint,
-            embedding = domain.embedding?.values,
+            embedding = domain.embedding?.let { embeddingToString(it) },
             deletedAt = domain.deletedAt
         )
     }
@@ -44,7 +44,7 @@ class FragmentMapper {
             moodValence = MoodValence(entity.moodValence),
             arousal = Arousal(entity.arousal),
             topicHint = entity.topicHint,
-            embedding = entity.embedding?.let { Embedding(it) },
+            embedding = entity.embedding?.let { stringToEmbedding(it) },
             deletedAt = entity.deletedAt
         )
     }
